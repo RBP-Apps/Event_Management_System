@@ -185,6 +185,48 @@ async def submit_visitor_and_get_contact(request: dict):
         logger.error(f"Submit Visitor Error: {e}")
         return {"success": False, "message": str(e)}
 
+@app.post("/create-qr")
+async def create_qr(request: dict):
+    try:
+        payload = {
+            "action": "create_personal_qr",
+            "profileData": {
+                "name": request.get("name"),
+                "phone": request.get("phone"),
+                "email": request.get("email"),
+                "company": request.get("company")
+            }
+        }
+        resp = submit_to_sheets(payload)
+        if resp and resp.status_code == 200:
+            return resp.json()
+        return {"success": False, "message": "Failed to create QR"}
+    except Exception as e:
+        logger.error(f"Create QR Error: {e}")
+        return {"success": False, "message": str(e)}
+
+@app.get("/get-qr-profile/{qr_id}")
+async def get_qr_profile(qr_id: str):
+    try:
+        resp = submit_to_sheets({"action": "get_qr_profile", "qrId": qr_id})
+        if resp and resp.status_code == 200:
+            return resp.json()
+        return {"success": False, "message": "QR Profile not found"}
+    except Exception as e:
+        logger.error(f"Get QR Profile Error: {e}")
+        return {"success": False, "message": str(e)}
+
+@app.get("/get-all-qr-profiles")
+async def get_all_qr_profiles():
+    try:
+        resp = submit_to_sheets({"action": "get_all_qr_profiles"})
+        if resp and resp.status_code == 200:
+            return resp.json()
+        return {"success": False, "message": "Failed to fetch QR profiles"}
+    except Exception as e:
+        logger.error(f"Get All QR Profiles Error: {e}")
+        return {"success": False, "message": str(e)}
+
 @app.get("/proxy-image")
 async def proxy_image(url: str):
     if not url:

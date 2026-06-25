@@ -1,12 +1,14 @@
 import { QRCodeSVG } from "qrcode.react"
 import { useState, useEffect } from "react"
-import { 
-  Phone, Mail, MapPin, Globe, Download, QrCode, Smartphone, Share2, 
-  Linkedin, Instagram, Facebook, Twitter, ExternalLink, User
+import {
+  Phone, Mail, MapPin, Globe, Download, QrCode, Smartphone, Share2,
+  Linkedin, Instagram, Facebook, Twitter, ExternalLink, User, Home
 } from "lucide-react"
 import jsPDF from "jspdf"
 // @ts-ignore - QRCode library doesn't have TypeScript definitions
 import QRCodeLib from "qrcode"
+import CreateQR from "./CreateQR"
+import QRListPage from "./QRListPage"
 
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzCPeTYr3DyfmQaEJCQ_A7KnKJ9gZtz4zO-chHkLyvxMFsCd2JRWikUB8LxpFwwbuczxw/exec";
 
@@ -171,6 +173,7 @@ function App() {
   const [showForm, setShowForm] = useState(true)
   const [eventId, setEventId] = useState<string | null>(null)
   const [eventName, setEventName] = useState<string>("")
+  const [currentPage, setCurrentPage] = useState<"profile" | "create-qr" | "qr-list">("profile")
 
   useEffect(() => {
     setScreenSize({ width: window.innerWidth })
@@ -178,17 +181,23 @@ function App() {
     window.addEventListener('resize', handleResize)
 
     const params = new URLSearchParams(window.location.search);
-    const id = params.get('id');
-    setEventId(id);
+    const eventId = params.get('id');
+    const qrId = params.get('qr');
+    const pageParam = params.get('page');
 
-    // Check if lead already submitted in this session
-    const hasSubmitted = sessionStorage.getItem(`lead_submitted_${id || 'default'}`);
-    if (hasSubmitted) {
-      setShowForm(false);
-    }
-
-    if (id) {
-      fetchEventData(id);
+    // Check if page param is qr-list
+    if (pageParam === 'qr-list') {
+      setCurrentPage('qr-list');
+      setLoading(false);
+    } else if (eventId) {
+      setEventId(eventId);
+      const hasSubmitted = sessionStorage.getItem(`lead_submitted_${eventId}`);
+      if (hasSubmitted) {
+        setShowForm(false);
+      }
+      fetchEventData(eventId);
+    } else if (qrId) {
+      fetchQRProfile(qrId);
     } else {
       setContactInfo({
         firstName: "Satyendra",
@@ -208,6 +217,7 @@ function App() {
         tagline: "Powering Businesses On Autopilot"
       });
       setLoading(false);
+      setShowForm(false);
     }
     return () => window.removeEventListener('resize', handleResize)
   }, [])
@@ -274,6 +284,45 @@ function App() {
           about: d["About Company"] || "",
           mapsLink: d["Google Maps Link"] || ""
         });
+      }
+    } catch (err) { console.error(err); } finally { setLoading(false); }
+  };
+
+  const fetchQRProfile = async (qrId: string) => {
+    try {
+      const response = await fetch(`/get-qr-profile/${qrId}`);
+      const res = await response.json();
+      if (res.success && res.data) {
+        const d = res.data;
+        const nameParts = d["Name"] ? d["Name"].split(' ') : ["User"];
+        setContactInfo({
+          firstName: nameParts[0] || "",
+          lastName: nameParts.slice(1).join(' ') || "",
+          title: "Professional",
+          organization: d["Company"] || "N/A",
+          phone: d["Phone"] || "",
+          email: d["Email"] || "",
+          address: "",
+          city: "",
+          state: "",
+          pincode: "",
+          country: "India",
+          website: "",
+          logo: "images/Botivate.png",
+          tagline: "",
+          industry: "",
+          whatsapp: "",
+          linkedin: "",
+          instagram: "",
+          facebook: "",
+          twitter: "",
+          services: "",
+          about: "",
+          mapsLink: ""
+        });
+        setShowForm(false);
+        // Mark as QR profile to show minimal view
+        sessionStorage.setItem('isQRProfile', 'true');
       }
     } catch (err) { console.error(err); } finally { setLoading(false); }
   };
@@ -469,13 +518,81 @@ END:VCARD`.trim()
     } catch (e) { console.error(e); }
   }
 
+  // Handle Create QR page
+  if (currentPage === "create-qr") {
+    return (
+      <div>
+        <div className="fixed top-4 left-4 z-50">
+          <button
+            onClick={() => setCurrentPage("profile")}
+            className="bg-white text-slate-800 font-black px-6 py-3 rounded-2xl shadow-xl flex items-center gap-2 hover:bg-slate-50 transition-all"
+          >
+            <Home className="w-5 h-5" /> BACK
+          </button>
+        </div>
+        <CreateQR />
+      </div>
+    );
+  }
+
+  // Handle QR List page
+  if (currentPage === "qr-list") {
+    return (
+      <QRListPage
+        onBack={() => setCurrentPage("profile")}
+        onSelectQR={(qrId) => {
+          window.location.href = `/profile?qr=${qrId}`;
+        }}
+      />
+    );
+  }
+
   if (loading || !contactInfo) return null;
 
   if (showForm) {
-    return <LeadForm 
-      cardOwner={`${contactInfo.firstName} ${contactInfo.lastName}`} 
-      onSubmit={handleLeadSubmit} 
+    return <LeadForm
+      cardOwner={`${contactInfo.firstName} ${contactInfo.lastName}`}
+      onSubmit={handleLeadSubmit}
     />;
+  }
+
+  // Minimal QR Profile View (for scanned QR codes)
+  const isQRProfile = sessionStorage.getItem('isQRProfile') === 'true';
+  if (isQRProfile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-3 sm:p-6 lg:p-8 font-sans flex items-center justify-center">
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 sm:p-8 border border-white/40">
+          <div className="text-center space-y-5 sm:space-y-6">
+            {/* Name */}
+            <div>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-800">{contactInfo.firstName} {contactInfo.lastName}</h1>
+              <p className="text-base sm:text-lg text-slate-600 font-semibold mt-2">{contactInfo.organization}</p>
+            </div>
+
+            {/* Phone & Email */}
+            <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4">
+              <div className="flex items-center justify-center gap-2 sm:gap-3 text-base sm:text-lg text-slate-700 px-2">
+                <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0" />
+                <span className="font-bold truncate">{contactInfo.phone}</span>
+              </div>
+              <div className="flex items-center justify-center gap-2 sm:gap-3 text-base sm:text-lg text-slate-700 px-2">
+                <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0" />
+                <span className="font-bold truncate">{contactInfo.email}</span>
+              </div>
+            </div>
+
+            {/* Save Contact Button */}
+            <button
+              onClick={downloadVCard}
+              className="w-full bg-blue-600 text-white font-black py-3 sm:py-4 px-6 rounded-2xl shadow-xl flex items-center justify-center gap-2 sm:gap-3 hover:bg-blue-700 transition-all active:scale-95 text-sm sm:text-base"
+            >
+              <Smartphone className="w-4 h-4 sm:w-5 sm:h-5" />
+              SAVE CONTACT
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const pageUrl = window.location.href;
@@ -559,6 +676,21 @@ END:VCARD`.trim()
             <div className="flex flex-col sm:flex-row gap-4">
               <button onClick={downloadVCard} className="flex-1 bg-white border-2 border-slate-200 font-black py-4 px-8 rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 hover:bg-slate-50"><Smartphone className="w-5 h-5" /> SAVE CONTACT</button>
               <button onClick={downloadContactPDF} className="flex-1 bg-slate-900 text-white font-black py-4 px-8 rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 hover:bg-black search-glass"><Download className="w-5 h-5" /> DOWNLOAD PDF</button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 mt-4">
+              <button
+                onClick={() => setCurrentPage("qr-list")}
+                className="flex-1 bg-indigo-600 text-white font-black py-4 px-8 rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 hover:bg-indigo-700"
+              >
+                <QrCode className="w-5 h-5" /> PROFILE QR LIST
+              </button>
+              <button
+                onClick={() => setCurrentPage("create-qr")}
+                className="flex-1 bg-blue-600 text-white font-black py-4 px-8 rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 hover:bg-blue-700"
+              >
+                <QrCode className="w-5 h-5" /> CREATE YOUR QR
+              </button>
             </div>
           </div>
         </div>

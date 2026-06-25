@@ -64,6 +64,12 @@ function doPost(e) {
       result = getCompanyProfile();
     } else if (action === 'save_company_profile') {
       result = saveCompanyProfile(postData.profileData);
+    } else if (action === 'create_personal_qr') {
+      result = createPersonalQR(postData.profileData);
+    } else if (action === 'get_qr_profile') {
+      result = getQRProfile(postData.qrId);
+    } else if (action === 'get_all_qr_profiles') {
+      result = getAllQRProfiles();
     } else {
       throw new Error("Invalid action specified: " + action);
     }
@@ -785,9 +791,110 @@ function saveCompanyProfile(profileData) {
   if (sheet.getLastRow() < 2) {
     sheet.appendRow(newRow);
   } else {
-    // Overwrite row 2 to always keep latest 
+    // Overwrite row 2 to always keep latest
     sheet.getRange(2, 1, 1, newRow.length).setValues([newRow]);
   }
-  
+
   return { success: true, message: "Company profile explicitly saved in the Sheet." };
+}
+
+/**
+ * Create Personal QR Profile
+ */
+function createPersonalQR(profileData) {
+  const SHEET_NAME = "Personal QR Profiles";
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  let sheet = ss.getSheetByName(SHEET_NAME);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME);
+    sheet.appendRow([
+      "Name",
+      "Phone",
+      "Email",
+      "Company",
+      "QR_ID",
+      "Created Date"
+    ]);
+    sheet.getRange(1, 1, 1, 6).setFontWeight("bold").setBackground("#f3f3f3");
+  }
+
+  // Generate unique QR_ID using timestamp + random
+  const timestamp = new Date().getTime();
+  const random = Math.floor(Math.random() * 10000);
+  const qrId = "qr_" + timestamp + "_" + random;
+
+  const createdDate = new Date();
+
+  sheet.appendRow([
+    profileData.name || "",
+    profileData.phone || "",
+    profileData.email || "",
+    profileData.company || "",
+    qrId,
+    createdDate
+  ]);
+
+  return {
+    success: true,
+    message: "QR Profile created successfully!",
+    qrId: qrId,
+    qrUrl: "https://ai-event.botivate.in/profile?qr=" + qrId
+  };
+}
+
+/**
+ * Get QR Profile by QR_ID
+ */
+function getQRProfile(qrId) {
+  if (!qrId) return { success: false, message: "No QR ID provided" };
+
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = ss.getSheetByName("Personal QR Profiles");
+
+  if (!sheet) return { success: false, message: "Personal QR Profiles sheet not found" };
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][4]).trim() === String(qrId).trim()) {
+      const result = {};
+      headers.forEach((h, idx) => {
+        result[h] = data[i][idx];
+      });
+      return { success: true, data: result };
+    }
+  }
+
+  return { success: false, message: "QR Profile not found" };
+}
+
+/**
+ * Get All QR Profiles
+ */
+function getAllQRProfiles() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = ss.getSheetByName("Personal QR Profiles");
+
+  if (!sheet) return { success: false, message: "Personal QR Profiles sheet not found" };
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { success: true, data: [] };
+
+  const headers = data[0];
+  const profiles = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (row[0] && row[0].toString().trim() !== "") {
+      const obj = {};
+      headers.forEach((h, idx) => {
+        obj[h] = row[idx];
+      });
+      profiles.push(obj);
+    }
+  }
+
+  return { success: true, data: profiles };
 }

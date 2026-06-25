@@ -189,6 +189,11 @@
                     <span class="hide-mobile">Create Event</span>
                 </button>
 
+                <button type="button" id="openQRBtn" onclick="openProfileQRModal()" class="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6a2 2 0 11-4 0 2 2 0 014 0zM15 13H9m0 0a6 6 0 0112 0m-12 0a6 6 0 1012 0"></path></svg>
+                    <span class="hide-mobile">Profile QR</span>
+                </button>
+
                 <div class="w-px h-8 bg-gray-100 mx-1 hide-mobile"></div>
 
                 <a id="globalDatabaseBtn" href="/leads" title="Global Leads Database" class="w-10 h-10 flex items-center justify-center bg-white border border-gray-200 rounded-full shadow-sm hover:bg-gray-50 transition-all active:scale-95 text-gray-600 hover:text-blue-600">
@@ -1579,5 +1584,427 @@
     </div>
 
     <!-- Toast Component Removed -->
+
+    <!-- Profile QR Modal -->
+    <div id="profileQRModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl max-w-4xl w-full my-8 border border-white/50 max-h-[95vh] overflow-hidden flex flex-col">
+
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-8 flex items-center justify-between">
+                <div>
+                    <h2 class="text-3xl font-black tracking-tight">Profile QR</h2>
+                    <p class="text-blue-100 text-sm font-semibold mt-1">Create & Manage Your QR Code</p>
+                </div>
+                <button onclick="closeProfileQRModal()" class="w-10 h-10 flex items-center justify-center bg-white/20 hover:bg-white/30 rounded-full transition-all">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex gap-4 px-8 pt-6 border-b border-gray-200">
+                <button onclick="switchProfileQRTab('create')" id="tab-create" class="pb-4 px-4 font-black text-sm uppercase tracking-widest text-blue-600 border-b-2 border-blue-600 transition-all">
+                    <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    Create QR
+                </button>
+                <button onclick="switchProfileQRTab('list')" id="tab-list" class="pb-4 px-4 font-black text-sm uppercase tracking-widest text-gray-400 hover:text-gray-600 border-b-2 border-transparent transition-all">
+                    <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    My QRs
+                </button>
+            </div>
+
+            <!-- Content Area -->
+            <div class="flex-1 overflow-y-auto">
+
+                <!-- CREATE TAB -->
+                <div id="tab-content-create" class="p-8">
+                    <div class="space-y-5">
+                        <!-- Name Field -->
+                        <div>
+                            <label class="text-[11px] font-black uppercase tracking-widest text-gray-600 block mb-2">Your Full Name</label>
+                            <input type="text" id="qr-name" placeholder="Ex: Rajesh Kumar" class="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-800 font-semibold">
+                        </div>
+
+                        <!-- Phone Field -->
+                        <div>
+                            <label class="text-[11px] font-black uppercase tracking-widest text-gray-600 block mb-2">Phone Number</label>
+                            <input type="tel" id="qr-phone" placeholder="+91 9999999999" class="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-800 font-semibold">
+                        </div>
+
+                        <!-- Email Field -->
+                        <div>
+                            <label class="text-[11px] font-black uppercase tracking-widest text-gray-600 block mb-2">Email Address</label>
+                            <input type="email" id="qr-email" placeholder="rajesh@company.com" class="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-800 font-semibold">
+                        </div>
+
+                        <!-- Company Field -->
+                        <div>
+                            <label class="text-[11px] font-black uppercase tracking-widest text-gray-600 block mb-2">Company / Organization</label>
+                            <input type="text" id="qr-company" placeholder="ABC Pvt Ltd" class="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-800 font-semibold">
+                        </div>
+
+                        <!-- Status Message -->
+                        <div id="qr-status-message" class="hidden p-4 rounded-2xl text-sm font-semibold"></div>
+
+                        <!-- QR Display -->
+                        <div id="qr-display-area" class="hidden text-center">
+                            <div class="bg-gray-50 p-6 rounded-2xl border border-gray-200 inline-block">
+                                <img id="qr-image" src="" alt="Your QR Code" class="w-48 h-48 rounded-lg">
+                            </div>
+                            <p id="qr-url-display" class="text-[12px] text-gray-500 mt-4 break-all font-mono"></p>
+                            <div class="flex gap-3 mt-6 justify-center flex-wrap">
+                                <button onclick="downloadQRImage()" class="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase hover:bg-blue-700 transition-all">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                    DOWNLOAD
+                                </button>
+                                <button onclick="copyQRLink()" class="flex items-center gap-2 px-6 py-3 bg-gray-600 text-white rounded-2xl font-black text-sm uppercase hover:bg-gray-700 transition-all">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                    COPY LINK
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Generate Button -->
+                        <button onclick="generateProfileQR()" id="qr-generate-btn" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            GENERATE MY QR
+                        </button>
+                    </div>
+                </div>
+
+                <!-- LIST TAB -->
+                <div id="tab-content-list" class="p-8 hidden">
+                    <div id="qr-list-container" class="space-y-4">
+                        <div class="text-center py-12">
+                            <div class="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4"></path></svg>
+                            </div>
+                            <p class="text-gray-500 font-semibold">Loading your QR profiles...</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div class="border-t border-gray-200 bg-gray-50 px-8 py-4 flex gap-3 justify-end">
+                <button onclick="closeProfileQRModal()" class="px-6 py-3 bg-white border-2 border-gray-200 text-gray-800 rounded-2xl font-black text-sm uppercase hover:bg-gray-50 transition-all">
+                    CLOSE
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    let currentQRData = null;
+
+    function openProfileQRModal() {
+        document.getElementById('profileQRModal').classList.remove('hidden');
+        loadQRProfiles();
+    }
+
+    function closeProfileQRModal() {
+        document.getElementById('profileQRModal').classList.add('hidden');
+        resetQRForm();
+    }
+
+    function switchProfileQRTab(tab) {
+        const tabCreate = document.getElementById('tab-create');
+        const tabList = document.getElementById('tab-list');
+        const contentCreate = document.getElementById('tab-content-create');
+        const contentList = document.getElementById('tab-content-list');
+
+        if (tab === 'create') {
+            // Active: CREATE tab
+            tabCreate.classList.remove('text-gray-400', 'border-transparent');
+            tabCreate.classList.add('text-blue-600', 'border-blue-600');
+            contentCreate.classList.remove('hidden');
+
+            // Inactive: LIST tab
+            tabList.classList.remove('text-blue-600', 'border-blue-600');
+            tabList.classList.add('text-gray-400', 'border-transparent');
+            contentList.classList.add('hidden');
+        } else if (tab === 'list') {
+            // Active: LIST tab
+            tabList.classList.remove('text-gray-400', 'border-transparent');
+            tabList.classList.add('text-blue-600', 'border-blue-600');
+            contentList.classList.remove('hidden');
+
+            // Inactive: CREATE tab
+            tabCreate.classList.remove('text-blue-600', 'border-blue-600');
+            tabCreate.classList.add('text-gray-400', 'border-transparent');
+            contentCreate.classList.add('hidden');
+
+            loadQRProfiles();
+        }
+    }
+
+    async function generateProfileQR() {
+        const name = document.getElementById('qr-name').value.trim();
+        const phone = document.getElementById('qr-phone').value.trim();
+        const email = document.getElementById('qr-email').value.trim();
+        const company = document.getElementById('qr-company').value.trim();
+
+        if (!name || !phone || !email || !company) {
+            showQRStatus('Please fill all fields', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('qr-generate-btn');
+        btn.disabled = true;
+        btn.innerHTML = 'Generating...';
+
+        try {
+            const response = await fetch('/create-qr', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, phone, email, company })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                currentQRData = data;
+                showQRStatus('✓ QR Code Generated Successfully!', 'success');
+                displayQRCode(data);
+                loadQRProfiles();
+            } else {
+                showQRStatus('Failed: ' + data.message, 'error');
+            }
+        } catch (error) {
+            console.error(error);
+            showQRStatus('Error creating QR code', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> GENERATE MY QR';
+        }
+    }
+
+    function displayQRCode(data) {
+        try {
+            const qrUrl = data.qrUrl || `http://127.0.0.1:8000/scanner?qr=${data.qrId}`;
+            // Use qr-server.com (better CORS support, no rate limiting)
+            const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrUrl)}`;
+
+            document.getElementById('qr-image').src = qrImageUrl;
+            document.getElementById('qr-url-display').textContent = qrUrl;
+            document.getElementById('qr-display-area').classList.remove('hidden');
+        } catch (error) {
+            console.error('Error generating QR image:', error);
+            showQRStatus('Error generating QR code', 'error');
+        }
+    }
+
+    function showQRStatus(message, type) {
+        const statusDiv = document.getElementById('qr-status-message');
+        statusDiv.textContent = message;
+        statusDiv.classList.remove('hidden', 'bg-green-50', 'text-green-700', 'bg-red-50', 'text-red-700');
+
+        if (type === 'success') {
+            statusDiv.classList.add('bg-green-50', 'text-green-700');
+        } else {
+            statusDiv.classList.add('bg-red-50', 'text-red-700');
+        }
+    }
+
+    function downloadQRImage() {
+        const img = document.getElementById('qr-image');
+        const link = document.createElement('a');
+        link.href = img.src;
+        link.download = `${document.getElementById('qr-name').value.replace(/\s+/g, '_')}_QR.png`;
+        link.click();
+    }
+
+    function copyQRLink() {
+        const url = document.getElementById('qr-url-display').textContent;
+        navigator.clipboard.writeText(url).then(() => {
+            alert('QR Link copied to clipboard!');
+        });
+    }
+
+    async function loadQRProfiles() {
+        const container = document.getElementById('qr-list-container');
+
+        try {
+            const response = await fetch('/get-all-qr-profiles');
+            const data = await response.json();
+            console.log('QR Profiles Response:', data);
+            if (data.data && data.data.length > 0) {
+                console.log('First profile keys:', Object.keys(data.data[0]));
+                console.log('First profile:', data.data[0]);
+            }
+
+            if (data.success && data.data && data.data.length > 0) {
+                container.innerHTML = data.data.map((profile, index) => {
+                    // Debug: log all keys
+                    console.log('All keys in profile:', Object.keys(profile));
+                    console.log('Profile object:', profile);
+
+                    // Try multiple ways to get QR_ID (handle space in column name)
+                    let qrId = '';
+                    if (profile.QR_ID) {
+                        qrId = profile.QR_ID;
+                        console.log('Found via .QR_ID');
+                    } else if (profile['QR_ID']) {
+                        qrId = profile['QR_ID'];
+                        console.log('Found via [QR_ID]');
+                    } else if (profile[' QR_ID']) {
+                        qrId = profile[' QR_ID'];
+                        console.log('Found via [ QR_ID] with space');
+                    } else {
+                        // Find the key that contains QR_ID
+                        const qrKey = Object.keys(profile).find(k => k.includes('QR_ID'));
+                        if (qrKey) {
+                            qrId = profile[qrKey];
+                            console.log('Found via key search:', qrKey, '=', qrId);
+                        }
+                    }
+
+                    // Ensure it's a string and trim whitespace
+                    qrId = String(qrId).trim();
+
+                    console.log('Profile ' + index + ' - Name:', profile.Name, 'Final QR_ID:', qrId);
+
+                    return `
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-2xl border border-blue-100 hover:shadow-md transition-all cursor-pointer group" onclick="viewQRProfile('${qrId}')">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-lg font-black text-gray-800 group-hover:text-blue-600 transition-colors">${profile.Name}</h3>
+                                <p class="text-sm text-gray-600 font-semibold mt-1">${profile.Company}</p>
+                                <p class="text-[12px] text-gray-500 mt-2">📞 ${profile.Phone}</p>
+                                <p class="text-[12px] text-gray-500">📧 ${profile.Email}</p>
+                                <p class="text-[12px] text-gray-400 mt-2">Created: ${new Date(profile['Created Date']).toLocaleDateString()}</p>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <div class="bg-white text-blue-600 w-10 h-10 rounded-full flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+            } else {
+                container.innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m0 0h6"></path></svg>
+                        </div>
+                        <p class="text-gray-500 font-semibold">No QR profiles yet</p>
+                        <p class="text-gray-400 text-sm mt-1">Create your first QR in the "Create QR" tab</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error(error);
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <p class="text-red-500 font-semibold">Error loading profiles</p>
+                </div>
+            `;
+        }
+    }
+
+    function viewQRProfile(qrId) {
+        console.log('View QR:', qrId);
+
+        // Hide list, show loading
+        document.getElementById('qr-list-container').innerHTML = `
+            <div class="text-center py-12">
+                <div class="inline-flex items-center justify-center">
+                    <div class="animate-spin" style="width: 30px; height: 30px; border: 3px solid #f3f3f3; border-top: 3px solid #2563eb; border-radius: 50%;"></div>
+                </div>
+                <p class="text-gray-500 font-semibold mt-4">Loading profile...</p>
+            </div>
+        `;
+
+        // Fetch profile
+        fetch(`/get-qr-profile/${qrId}`)
+            .then(r => r.json())
+            .then(data => {
+                console.log('Profile:', data);
+                if (data.success && data.data) {
+                    const p = data.data;
+                    const qrUrl = `http://127.0.0.1:8000/scanner?qr=${qrId}`;
+
+                    // Use qr-server.com instead of Google Charts (better CORS support)
+                    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrUrl)}`;
+
+                    console.log('QR Image URL:', qrImageUrl);
+
+                    // Show QR code for scanning
+                    document.getElementById('qr-list-container').innerHTML = `
+                        <div class="text-center space-y-6 py-8 px-4">
+                            <div>
+                                <h2 class="text-2xl sm:text-3xl font-black text-gray-800">${p.Name}</h2>
+                                <p class="text-gray-600 font-semibold mt-3 text-base sm:text-lg">Scan this QR to save my contact</p>
+                            </div>
+
+                            <div class="bg-gray-50 p-4 sm:p-8 rounded-2xl border-2 border-gray-200 inline-block mx-auto">
+                                <img src="${qrImageUrl}" alt="QR Code" class="w-64 h-64 sm:w-80 sm:h-80 rounded-lg" onerror="console.log('QR image failed to load')">
+                            </div>
+
+                            <button onclick="loadQRProfiles()" class="w-full bg-gray-600 text-white font-black py-3 px-6 rounded-2xl hover:bg-gray-700 transition-all text-sm uppercase">
+                                ← BACK TO LIST
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('qr-list-container').innerHTML = `
+                        <div class="text-center py-12">
+                            <p class="text-red-500 font-semibold">Error loading profile</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('qr-list-container').innerHTML = `
+                    <div class="text-center py-12">
+                        <p class="text-red-500 font-semibold">Error loading profile</p>
+                    </div>
+                `;
+            });
+    }
+
+    function downloadQRFromProfile(imageUrl, personName) {
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = `${personName.replace(/\s+/g, '_')}_QR.png`;
+        link.click();
+    }
+
+    function resetQRForm() {
+        document.getElementById('qr-name').value = '';
+        document.getElementById('qr-phone').value = '';
+        document.getElementById('qr-email').value = '';
+        document.getElementById('qr-company').value = '';
+        document.getElementById('qr-display-area').classList.add('hidden');
+        document.getElementById('qr-status-message').classList.add('hidden');
+        currentQRData = null;
+    }
+
+    function saveContactFromQR(name, phone, email) {
+        const vcard = `BEGIN:VCARD
+VERSION:3.0
+FN:${name}
+TEL;TYPE=WORK:${phone}
+EMAIL;TYPE=PREF:${email}
+END:VCARD`;
+
+        const blob = new Blob([vcard], { type: 'text/vcard' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${name.replace(/\s+/g, '_')}.vcf`;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('profileQRModal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'profileQRModal') {
+            closeProfileQRModal();
+        }
+    });
+    </script>
+
 </body>
 </html>
