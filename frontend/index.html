@@ -1780,7 +1780,7 @@
 
     function displayQRCode(data) {
         try {
-            const qrUrl = data.qrUrl || `http://127.0.0.1:8000/scanner?qr=${data.qrId}`;
+            const qrUrl = data.qrUrl || `https://ai-event.saloonmate.com/scanner?qr=${data.qrId}`;
             // Use qr-server.com (better CORS support, no rate limiting)
             const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrUrl)}`;
 
@@ -1923,7 +1923,7 @@
                 console.log('Profile:', data);
                 if (data.success && data.data) {
                     const p = data.data;
-                    const qrUrl = `http://127.0.0.1:8000/scanner?qr=${qrId}`;
+                    const qrUrl = `https://ai-event.saloonmate.com/scanner?qr=${qrId}`;
 
                     // Use qr-server.com instead of Google Charts (better CORS support)
                     const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrUrl)}`;
