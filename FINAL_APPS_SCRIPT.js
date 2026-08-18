@@ -9,6 +9,120 @@
  */
 
 /**
+ * ------------------------------------------------------------------
+ * AUTO SHEET SETUP
+ * ------------------------------------------------------------------
+ * Ensures every worksheet tab this script depends on exists with the
+ * correct header row. Safe to run any number of times — it only
+ * creates what's missing and never touches existing data.
+ *
+ * Run this once after deploying to a brand-new Google Sheet (via the
+ * "🛠️ Setup Sheets" menu that appears when the Sheet is opened, or by
+ * running `setupAllSheets` directly from the Apps Script editor).
+ * It is also called automatically as a safety net from every save/read
+ * function below, so a missing tab self-heals instead of hard-failing.
+ * ------------------------------------------------------------------
+ */
+const REQUIRED_SHEETS = {
+  "Ai Card": [
+    "Timestamp", "Photo1", "Photo2", "Company", "Industry", "Name", "Title",
+    "Phone", "Email", "Website", "Social Media", "Address", "Services",
+    "Company Size", "Founded Year", "Registration Status", "Trust Score",
+    "Key People", "Is Validated", "Validation Link", "About Company", "Location"
+  ],
+  "Event Details": [
+    "Timestamp", "Event ID", "Event Name", "Start Date", "End Date",
+    "Location", "Description", "Member Name", "Designation", "Phone"
+  ],
+  "Event Ai Card": [
+    "Timestamp", "Event ID", "Event Name", "Event Start Date", "Event End Date",
+    "Card Photo 1", "Card Photo 2", "Company Name", "Industry", "Person Name",
+    "Designation", "Phone", "Email", "Website", "Social Media", "Address",
+    "Services", "Company Size", "Founded Year", "Registration Status",
+    "Trust Score", "People (Founders)", "Is Validated", "Source Link",
+    "About Company", "Location"
+  ],
+  "Visitor Details": [
+    "Timestamp", "Event ID", "Event Name", "Visitor Name", "Visitor Mobile",
+    "Visitor Email", "Visitor Organization", "Visitor Designation", "Message"
+  ],
+  "Company Profile": [
+    "Timestamp", "Company Name", "Tagline", "Industry", "Founded Year",
+    "Official Phone", "Alternate Phone", "Official Email", "WhatsApp Number",
+    "Address Line 1", "City", "State", "Pincode", "Country", "Website URL",
+    "Google Maps Link", "LinkedIn", "Instagram", "Facebook", "Twitter",
+    "Services Provided", "About the company", "Key Person Name",
+    "Key Person Designation", "Key Person Phone", "Key Person Email", "Logo"
+  ],
+  "Personal QR Profiles": [
+    "Name", "Phone", "Email", "Company", "QR_ID", "Created Date"
+  ]
+};
+
+/**
+ * Creates a sheet (if missing) or fills in the header row (if the
+ * existing sheet is empty). Never overwrites a sheet that already has data.
+ */
+function ensureSheet(ss, sheetName) {
+  const headers = REQUIRED_SHEETS[sheetName];
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+  }
+
+  if (sheet.getLastRow() === 0 && headers) {
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length)
+      .setFontWeight("bold")
+      .setBackground("#f3f3f3");
+    sheet.setFrozenRows(1);
+  }
+
+  return sheet;
+}
+
+/**
+ * Public entry point — creates every required sheet tab + header row
+ * that doesn't already exist. Run manually from the Apps Script editor,
+ * or via the "🛠️ Setup Sheets" custom menu (see onOpen below).
+ */
+function setupAllSheets() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const created = [];
+
+  Object.keys(REQUIRED_SHEETS).forEach(name => {
+    const existed = !!ss.getSheetByName(name);
+    ensureSheet(ss, name);
+    if (!existed) created.push(name);
+  });
+
+  const message = created.length
+    ? "✅ Created sheets: " + created.join(", ")
+    : "✅ All required sheets already exist. Nothing to do.";
+
+  try {
+    SpreadsheetApp.getUi().alert(message);
+  } catch (e) {
+    // getUi() fails when run outside the Sheets UI (e.g. from the script editor) — that's fine.
+    Logger.log(message);
+  }
+
+  return { success: true, message: message, created: created };
+}
+
+/**
+ * Adds a custom menu so setup can be triggered with one click after
+ * opening a freshly-deployed Google Sheet.
+ */
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu("⚙️ Business Card Reader")
+    .addItem("🛠️ Setup Sheets", "setupAllSheets")
+    .addToUi();
+}
+
+/**
  * Handle GET requests to fetch whole sheet data for the Dashboard.
  */
 function doGet(e) {
@@ -111,8 +225,7 @@ function saveData(extractedData, photo1Base64, photo2Base64) {
   let sheet;
   try {
     const ss = SpreadsheetApp.openById(SHEET_ID);
-    sheet = ss.getSheetByName(SHEET_NAME);
-    if (!sheet) throw new Error("Sheet with name '" + SHEET_NAME + "' not found.");
+    sheet = ensureSheet(ss, SHEET_NAME);
   } catch (e) {
     throw new Error("FAILED to access Spreadsheet. Check SHEET_ID or Sheet Name. Details: " + e.message);
   }
@@ -208,36 +321,13 @@ function saveData(extractedData, photo1Base64, photo2Base64) {
 function saveEventData(eventData) {
   const SHEET_NAME = "Event Details";
 
-  // --- Open Sheet ---
+  // --- Open Sheet (auto-created with headers if missing) ---
   let sheet;
   try {
     const ss = SpreadsheetApp.openById(SHEET_ID);
-    sheet = ss.getSheetByName(SHEET_NAME);
-    if (!sheet) throw new Error("Sheet '" + SHEET_NAME + "' not found.");
+    sheet = ensureSheet(ss, SHEET_NAME);
   } catch (e) {
     throw new Error("FAILED to access Spreadsheet: " + e.message);
-  }
-
-  // --- Auto-create header row if sheet is empty ---
-  if (sheet.getLastRow() === 0) {
-    const headers = [
-      "Timestamp",      // A
-      "Event ID",       // B
-      "Event Name",     // C
-      "Start Date",     // D
-      "End Date",       // E
-      "Location",       // F
-      "Description",    // G
-      "Member Name",    // H
-      "Designation",    // I
-      "Phone"           // J
-    ];
-    sheet.appendRow(headers);
-    sheet.getRange(1, 1, 1, headers.length)
-      .setFontWeight("bold")
-      .setBackground("#d9e8fb")
-      .setFontColor("#1a3a6b");
-    sheet.setFrozenRows(1);
   }
 
   const timestamp = new Date();
@@ -320,9 +410,8 @@ function saveEventData(eventData) {
 
 function getEventList() {
   const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName("Event Details");
-  if (!sheet) return { success: false, message: "Sheet 'Event Details' not found." };
-  
+  const sheet = ensureSheet(ss, "Event Details");
+
   const data = sheet.getDataRange().getValues();
   if (data.length < 2) return { success: true, data: [] };
   
@@ -346,20 +435,7 @@ function saveEventCardData(extractedData, photo1Base64, photo2Base64, eventInfo)
   const SHEET_NAME = "Event Ai Card";
   const FOLDER_ID = "1zggOUpg0SfMdi5LAXIfIWqZcBGMGHmMz";
   const ss = SpreadsheetApp.openById(SHEET_ID);
-  let sheet = ss.getSheetByName(SHEET_NAME);
-  
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
-    sheet.appendRow([
-      "Timestamp", "Event ID", "Event Name", "Event Start Date", "Event End Date",
-      "Card Photo 1", "Card Photo 2", "Company Name", "Industry", "Person Name",
-      "Designation", "Phone", "Email", "Website", "Social Media", "Address",
-      "Services", "Company Size", "Founded Year", "Registration Status",
-      "Trust Score", "People (Founders)", "Is Validated", "Source Link",
-      "About Company", "Location"
-    ]);
-    sheet.getRange(1, 1, 1, 26).setFontWeight("bold").setBackground("#f3f3f3");
-  }
+  const sheet = ensureSheet(ss, SHEET_NAME);
 
   let folder;
   try { folder = DriveApp.getFolderById(FOLDER_ID); } catch (e) { throw new Error("Drive Folder Error: " + e.message); }
@@ -414,9 +490,8 @@ function saveEventCardData(extractedData, photo1Base64, photo2Base64, eventInfo)
 function getEventById(eventId) {
     if (!eventId) return { success: false, message: "No Event ID provided" };
     
-    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("Event Details");
-    if (!sheet) return { success: false, message: "Sheet not found" };
-    
+    const sheet = ensureSheet(SpreadsheetApp.openById(SHEET_ID), "Event Details");
+
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
     
@@ -492,24 +567,8 @@ function getEventSpecificData(eventId, eventName) {
 function saveLeadData(leadData) {
   const SHEET_NAME = "Visitor Details";
   const ss = SpreadsheetApp.openById(SHEET_ID);
-  let sheet = ss.getSheetByName(SHEET_NAME);
-  
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
-    sheet.appendRow([
-      "Timestamp", 
-      "Event ID",
-      "Event Name",
-      "Visitor Name", 
-      "Visitor Mobile", 
-      "Visitor Email", 
-      "Visitor Organization", 
-      "Visitor Designation", 
-      "Message"
-    ]);
-    sheet.getRange(1, 1, 1, 9).setFontWeight("bold").setBackground("#f3f3f3");
-  }
-  
+  const sheet = ensureSheet(ss, SHEET_NAME);
+
   const timestamp = new Date();
   sheet.appendRow([
     timestamp,
@@ -594,23 +653,8 @@ function saveVisitorAndGetContact(visitorData) {
   }
 
   // 2. Save the visitor details
-  let sheet = ss.getSheetByName(SHEET_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
-    sheet.appendRow([
-      "Timestamp", 
-      "Event ID",
-      "Event Name",
-      "Visitor Name", 
-      "Visitor Mobile", 
-      "Visitor Email", 
-      "Visitor Organization", 
-      "Visitor Designation", 
-      "Message"
-    ]);
-    sheet.getRange(1, 1, 1, 9).setFontWeight("bold").setBackground("#f3f3f3");
-  }
-  
+  const sheet = ensureSheet(ss, SHEET_NAME);
+
   const timestamp = new Date();
   sheet.appendRow([
     timestamp,
@@ -665,9 +709,9 @@ function getSheetData(SHEET_NAME) {
   if (!SHEET_NAME) SHEET_NAME = "Ai Card";
   
   const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName(SHEET_NAME);
+  const sheet = REQUIRED_SHEETS[SHEET_NAME] ? ensureSheet(ss, SHEET_NAME) : ss.getSheetByName(SHEET_NAME);
   if (!sheet) throw new Error("Sheet not found: " + SHEET_NAME);
-  
+
   const range = sheet.getDataRange();
   const values = range.getValues();
   const formulas = range.getFormulas();
@@ -696,9 +740,9 @@ function getSheetData(SHEET_NAME) {
  */
 function getCompanyProfile() {
   const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName("Company Profile");
-  
-  if (!sheet || sheet.getLastRow() < 2) {
+  const sheet = ensureSheet(ss, "Company Profile");
+
+  if (sheet.getLastRow() < 2) {
     return { success: true, profile: {} };
   }
   
@@ -748,10 +792,8 @@ function getCompanyProfile() {
  */
 function saveCompanyProfile(profileData) {
   const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName("Company Profile");
-  
-  if (!sheet) return { success: false, message: "Company Profile sheet not found!" };
-  
+  const sheet = ensureSheet(ss, "Company Profile");
+
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   const newRow = new Array(headers.length).fill("");
   newRow[0] = new Date(); // Timestamp
@@ -804,20 +846,7 @@ function saveCompanyProfile(profileData) {
 function createPersonalQR(profileData) {
   const SHEET_NAME = "Personal QR Profiles";
   const ss = SpreadsheetApp.openById(SHEET_ID);
-  let sheet = ss.getSheetByName(SHEET_NAME);
-
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
-    sheet.appendRow([
-      "Name",
-      "Phone",
-      "Email",
-      "Company",
-      "QR_ID",
-      "Created Date"
-    ]);
-    sheet.getRange(1, 1, 1, 6).setFontWeight("bold").setBackground("#f3f3f3");
-  }
+  const sheet = ensureSheet(ss, SHEET_NAME);
 
   // Generate unique QR_ID using timestamp + random
   const timestamp = new Date().getTime();
@@ -850,9 +879,7 @@ function getQRProfile(qrId) {
   if (!qrId) return { success: false, message: "No QR ID provided" };
 
   const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName("Personal QR Profiles");
-
-  if (!sheet) return { success: false, message: "Personal QR Profiles sheet not found" };
+  const sheet = ensureSheet(ss, "Personal QR Profiles");
 
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
@@ -875,9 +902,7 @@ function getQRProfile(qrId) {
  */
 function getAllQRProfiles() {
   const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName("Personal QR Profiles");
-
-  if (!sheet) return { success: false, message: "Personal QR Profiles sheet not found" };
+  const sheet = ensureSheet(ss, "Personal QR Profiles");
 
   const data = sheet.getDataRange().getValues();
   if (data.length < 2) return { success: true, data: [] };

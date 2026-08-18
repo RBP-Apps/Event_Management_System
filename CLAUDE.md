@@ -80,6 +80,11 @@ Three-tier enrichment pipeline:
 - Filter by company, industry, trust score, validation status
 - Export capabilities
 
+### 6. **In-App Back Navigation** ⭐ NEW
+- Scanner app (`BotivateScanner`) sub-pages (Create QR, Profile QR List) use real browser history (`window.history.pushState`/`popstate`) instead of a hardcoded "go to profile" reset
+- The in-app BACK button and the browser's native back arrow both resolve to `window.history.back()`, so they always return to whichever page the user actually came from
+- See `App.tsx` → `goToPage()` / `goBack()`
+
 ---
 
 ## 🛠️ Tech Stack
@@ -190,6 +195,16 @@ User clicks "SAVE CONTACT" → Download .vcf file
 
 ---
 
+## 🏢 Company Profile — Industry Field
+
+- **Location**: `frontend/index.html`, Profile Drawer → Company Details → `#prof_comp_industry`
+- **Fixed options**: Technology, Real Estate, Healthcare, Finance, Education, **Energy & Utilities**, Other
+- **"Other" behavior**: selecting `Other` reveals a text input (`#prof_comp_industry_other`); `saveProfile()` swaps the saved `industry` value for whatever was typed there, so a custom industry is stored and round-trips identically to a picklist value
+- **On load**: if the saved `industry` value doesn't match any fixed option, the dropdown auto-selects `Other` and fills the text box with the saved value (so old custom entries redisplay correctly)
+- Wiring: `toggleIndustryOther()` shows/hides the text box on `<select onchange>`
+
+---
+
 ## 🔧 Setup & Deployment
 
 ### Environment Setup
@@ -290,6 +305,38 @@ User clicks "SAVE CONTACT" → Download .vcf file
 **Root Cause**: Fixed text sizes
 **Fix**: Use Tailwind responsive classes (`sm:`, `md:`, `lg:`)
 
+### Issue: Company Profile "Save" button spins forever, nothing happens
+**Root Cause**: In `frontend/index.html` → `saveProfile()`, `res` was declared with `const` inside the `try` block but referenced again inside `finally`. That's a `ReferenceError` (block-scoped variable used outside its scope), so the `finally` block crashed before it could hide the loading spinner — on every save attempt, success or failure.
+**Fix**: Declare `let res;` before the `try` block, then assign it inside (`res = await response.json();`) instead of `const res = ...`. Fixed in commit `19934b1`.
+**Related**: once this was fixed, the *real* underlying error becomes visible as a toast — usually `"Company Profile sheet not found!"` (see next issue).
+
+### Issue: "Company Profile sheet not found!" / new Google Sheet doesn't work out of the box
+**Root Cause**: A brand-new Google Sheet only has a default `Sheet1` tab. Historically, not every worksheet the Apps Script needed was auto-created — `saveCompanyProfile()` and `getCompanyProfile()` used to hard-fail with `ss.getSheetByName("Company Profile")` returning null.
+**Fix (superseded)**: This is now solved properly by the auto-setup system below — every sheet self-heals on first use, and there's a one-click "Setup Sheets" menu for new deployments.
+
+---
+
+## 📄 Auto Sheet Setup (v2.1+)
+
+As of `FINAL_APPS_SCRIPT.js` v2.1, **the whole Google Sheet structure is self-provisioning** — no more manually creating tabs for a new deployment.
+
+### How it works
+- `REQUIRED_SHEETS` (top of the file) is a map of `sheetName → [header columns]` for every tab the system needs: `Ai Card`, `Event Details`, `Event Ai Card`, `Visitor Details`, `Company Profile`, `Personal QR Profiles`.
+- `ensureSheet(ss, name)` creates the tab if missing and writes the bolded header row if the tab is empty — never touches a tab that already has data.
+- Every read/write function (`saveData`, `saveEventData`, `getEventList`, `saveEventCardData`, `saveLeadData`, `saveVisitorAndGetContact`, `getCompanyProfile`, `saveCompanyProfile`, `createPersonalQR`, `getQRProfile`, `getAllQRProfiles`, `getSheetData`) calls `ensureSheet()` instead of a raw `getSheetByName()` — so a missing tab self-heals instead of throwing a hard error.
+- `setupAllSheets()` is the one-shot entry point: creates every tab in `REQUIRED_SHEETS` that doesn't exist yet. Safe to run any number of times.
+- `onOpen()` adds a **"⚙️ Business Card Reader" → "🛠️ Setup Sheets"** menu that appears automatically when the Google Sheet is opened — click it once right after deploying to a brand-new Sheet and everything gets created in one go.
+
+### New client / new deployment checklist
+1. Create a new Google Sheet
+2. Extensions → Apps Script → paste `FINAL_APPS_SCRIPT.js`, set `SHEET_ID` to the new Sheet's ID
+3. Deploy as Web App, copy the `APPS_SCRIPT_URL`
+4. Open the Google Sheet in the browser (triggers `onOpen`) → click **⚙️ Business Card Reader → 🛠️ Setup Sheets** — this creates all 6 tabs with correct headers in one click
+   - (Alternative: run `setupAllSheets` directly from the Apps Script editor if you don't want to touch the Sheet UI)
+5. Proceed with the rest of the setup (API keys, `.env`, Render deploy)
+
+> Even without running the menu manually, the system now self-heals — the first OCR scan / event save / profile save / QR create will silently create whatever tab it needs. The menu is just the fast, all-at-once option.
+
 ---
 
 ## 💾 Data Model (Google Sheets)
@@ -326,6 +373,15 @@ User clicks "SAVE CONTACT" → Download .vcf file
 | Event Name | String | Event title |
 | Date | Date | Event date |
 | Cards Scanned | Number | Count |
+
+### "Company Profile" Sheet
+Row 1 must contain these exact headers (order doesn't matter, names must match exactly — `saveCompanyProfile`/`getCompanyProfile` match by header text):
+
+```
+Timestamp | Company Name | Tagline | Industry | Founded Year | Official Phone | Alternate Phone | Official Email | WhatsApp Number | Address Line 1 | City | State | Pincode | Country | Website URL | Google Maps Link | LinkedIn | Instagram | Facebook | Twitter | Services Provided | About the company | Key Person Name | Key Person Designation | Key Person Phone | Key Person Email | Logo
+```
+
+Only ever holds **one row of data** (row 2) — every save overwrites row 2 rather than appending.
 
 ---
 
@@ -411,5 +467,5 @@ npm run build
 
 ---
 
-**Last Updated**: June 25, 2026
-**System Version**: v2.0.0 (with Personal QR Profiles)
+**Last Updated**: August 18, 2026
+**System Version**: v2.1.0 (Back Navigation Fix + Custom Industry + Company Profile Save Fix + Auto Sheet Setup)
