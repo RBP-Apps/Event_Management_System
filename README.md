@@ -2,6 +2,8 @@
 
 > **Scan a business card → Get verified company intel in seconds.**
 
+🔗 **Live App:** [https://ai-event.saloonmate.com/](https://ai-event.saloonmate.com/)
+
 An end-to-end system that uses **OpenAI GPT-4o Vision** to extract text from business card images, then enriches the data through a **Deterministic Waterfall Pipeline** — scraping the company's real website, extracting social media links, pulling legal registration data, and structuring everything into a clean, validated JSON payload saved directly to Google Sheets.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)
