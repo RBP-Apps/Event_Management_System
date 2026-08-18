@@ -591,7 +591,7 @@
                     <h3 class="text-3xl font-bold text-gray-900 mb-2">Event Created ✅</h3>
                     <p class="text-gray-500 max-w-sm mx-auto mb-8">Your event has been successfully registered. Share the link or QR code with your team.</p>
                     <div class="qr-placeholder">
-                        <img id="generatedQR" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://ai-event.saloonmate.com/visitor-form/demo" alt="QR Code">
+                        <img id="generatedQR" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=placeholder" alt="QR Code">
                     </div>
 
                     <div class="w-full max-w-md bg-gray-50 p-4 rounded-2xl border border-gray-100 mb-10 flex items-center justify-between">
@@ -935,7 +935,7 @@
                 if (divider) divider.classList.add('hidden');
                 
                 // Generate Event Form QR
-                const eventFormUrl = `https://ai-event.saloonmate.com/visitor-form/${ev.id}`;
+                const eventFormUrl = `${window.location.origin}/visitor-form/${ev.id}`;
                 document.getElementById('displayQR').src = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(eventFormUrl)}`;
 
                 if (!isPopState) {
@@ -1327,7 +1327,7 @@
                         toastMe('Event Created Successfully!', '#10b981');
                         
                         // Update QR to point to Visitor Form
-                        const eventUrl = `https://ai-event.saloonmate.com/visitor-form/${res.eventId}`;
+                        const eventUrl = `${window.location.origin}/visitor-form/${res.eventId}`;
                         document.getElementById('generatedQR').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(eventUrl)}`;
                         document.getElementById('eventLinkText').innerText = eventUrl;
                         
@@ -1813,7 +1813,9 @@
 
     function displayQRCode(data) {
         try {
-            const qrUrl = data.qrUrl || `https://ai-event.saloonmate.com/scanner?qr=${data.qrId}`;
+            // Always build from the current origin — ignore any domain baked into
+            // data.qrUrl by Apps Script, so QR links work correctly across deployments.
+            const qrUrl = `${window.location.origin}/scanner?qr=${data.qrId}`;
             // Use qr-server.com (better CORS support, no rate limiting)
             const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrUrl)}`;
 
@@ -1956,7 +1958,7 @@
                 console.log('Profile:', data);
                 if (data.success && data.data) {
                     const p = data.data;
-                    const qrUrl = `https://ai-event.saloonmate.com/scanner?qr=${qrId}`;
+                    const qrUrl = `${window.location.origin}/scanner?qr=${qrId}`;
 
                     // Use qr-server.com instead of Google Charts (better CORS support)
                     const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrUrl)}`;

@@ -866,11 +866,15 @@ function createPersonalQR(profileData) {
     createdDate
   ]);
 
+  // Note: qrUrl is intentionally NOT returned here — Apps Script has no reliable
+  // way to know which domain the request came from (Botivate's, RBP's, or any
+  // other deployment). The frontend builds the scan URL itself from
+  // window.location.origin so QR codes always point at the deployment that
+  // created them, not a hardcoded domain.
   return {
     success: true,
     message: "QR Profile created successfully!",
-    qrId: qrId,
-    qrUrl: "https://ai-event.botivate.in/profile?qr=" + qrId
+    qrId: qrId
   };
 }
 
