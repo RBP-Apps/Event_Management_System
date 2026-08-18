@@ -175,10 +175,31 @@ function App() {
   const [eventName, setEventName] = useState<string>("")
   const [currentPage, setCurrentPage] = useState<"profile" | "create-qr" | "qr-list">("profile")
 
+  // Navigate to a sub-page while pushing real browser history so the
+  // back arrow / BACK button returns to wherever the user actually came from.
+  const goToPage = (page: "profile" | "create-qr" | "qr-list") => {
+    window.history.pushState({ page }, "", window.location.href)
+    setCurrentPage(page)
+  }
+
+  const goBack = () => {
+    window.history.back()
+  }
+
   useEffect(() => {
     setScreenSize({ width: window.innerWidth })
     const handleResize = () => setScreenSize({ width: window.innerWidth })
     window.addEventListener('resize', handleResize)
+
+    // Seed the initial history entry so the very first in-app navigation
+    // has something real to pop back to.
+    window.history.replaceState({ page: 'profile' }, "", window.location.href)
+
+    const handlePopState = (e: PopStateEvent) => {
+      const page = e.state?.page || 'profile'
+      setCurrentPage(page)
+    }
+    window.addEventListener('popstate', handlePopState)
 
     const params = new URLSearchParams(window.location.search);
     const eventId = params.get('id');
@@ -219,7 +240,10 @@ function App() {
       setLoading(false);
       setShowForm(false);
     }
-    return () => window.removeEventListener('resize', handleResize)
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      window.removeEventListener('popstate', handlePopState)
+    }
   }, [])
 
   const convertDriveLink = (url: string) => {
@@ -524,7 +548,7 @@ END:VCARD`.trim()
       <div>
         <div className="fixed top-4 left-4 z-50">
           <button
-            onClick={() => setCurrentPage("profile")}
+            onClick={goBack}
             className="bg-white text-slate-800 font-black px-6 py-3 rounded-2xl shadow-xl flex items-center gap-2 hover:bg-slate-50 transition-all"
           >
             <Home className="w-5 h-5" /> BACK
@@ -539,7 +563,7 @@ END:VCARD`.trim()
   if (currentPage === "qr-list") {
     return (
       <QRListPage
-        onBack={() => setCurrentPage("profile")}
+        onBack={goBack}
         onSelectQR={(qrId) => {
           window.location.href = `/profile?qr=${qrId}`;
         }}
@@ -680,13 +704,13 @@ END:VCARD`.trim()
 
             <div className="flex flex-col sm:flex-row gap-4 mt-4">
               <button
-                onClick={() => setCurrentPage("qr-list")}
+                onClick={() => goToPage("qr-list")}
                 className="flex-1 bg-indigo-600 text-white font-black py-4 px-8 rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 hover:bg-indigo-700"
               >
                 <QrCode className="w-5 h-5" /> PROFILE QR LIST
               </button>
               <button
-                onClick={() => setCurrentPage("create-qr")}
+                onClick={() => goToPage("create-qr")}
                 className="flex-1 bg-blue-600 text-white font-black py-4 px-8 rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 hover:bg-blue-700"
               >
                 <QrCode className="w-5 h-5" /> CREATE YOUR QR
