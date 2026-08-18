@@ -180,6 +180,8 @@ function doPost(e) {
       result = saveCompanyProfile(postData.profileData);
     } else if (action === 'create_personal_qr') {
       result = createPersonalQR(postData.profileData);
+    } else if (action === 'update_personal_qr') {
+      result = updatePersonalQR(postData.qrId, postData.profileData);
     } else if (action === 'get_qr_profile') {
       result = getQRProfile(postData.qrId);
     } else if (action === 'get_all_qr_profiles') {
@@ -870,6 +872,47 @@ function createPersonalQR(profileData) {
     qrId: qrId,
     qrUrl: "https://ai-event.botivate.in/profile?qr=" + qrId
   };
+}
+
+/**
+ * Update an existing Personal QR Profile (Name/Phone/Email/Company) by QR_ID.
+ * The QR_ID itself and Created Date are left untouched.
+ */
+function updatePersonalQR(qrId, profileData) {
+  if (!qrId) return { success: false, message: "No QR ID provided" };
+
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = ensureSheet(ss, "Personal QR Profiles");
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const qrIdCol = headers.findIndex(h => String(h).trim() === "QR_ID");
+
+  if (qrIdCol === -1) return { success: false, message: "QR_ID column not found" };
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][qrIdCol]).trim() === String(qrId).trim()) {
+      const rowIndex = i + 1; // 1-based sheet row
+      headers.forEach((h, colIdx) => {
+        const hTrim = String(h).trim();
+        if (hTrim === "Name" && profileData.name !== undefined) {
+          sheet.getRange(rowIndex, colIdx + 1).setValue(profileData.name);
+        }
+        if (hTrim === "Phone" && profileData.phone !== undefined) {
+          sheet.getRange(rowIndex, colIdx + 1).setValue(profileData.phone);
+        }
+        if (hTrim === "Email" && profileData.email !== undefined) {
+          sheet.getRange(rowIndex, colIdx + 1).setValue(profileData.email);
+        }
+        if (hTrim === "Company" && profileData.company !== undefined) {
+          sheet.getRange(rowIndex, colIdx + 1).setValue(profileData.company);
+        }
+      });
+      return { success: true, message: "QR Profile updated successfully!", qrId: qrId };
+    }
+  }
+
+  return { success: false, message: "QR Profile not found" };
 }
 
 /**

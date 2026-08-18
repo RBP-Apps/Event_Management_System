@@ -71,6 +71,7 @@ Three-tier enrichment pipeline:
 - Users create personal QR codes with Name, Phone, Email, Company
 - Generate unique QR codes that link to contact profile
 - Share QR codes for instant contact saving
+- **Editable**: each profile card in "MY QRs" list has a pencil/Edit icon → inline form to update Name/Phone/Email/Company without changing the QR_ID (so the existing printed/shared QR code keeps working) — `PUT /update-qr/{qr_id}` → `updatePersonalQR()` in Apps Script
 - Two views:
   - **QR Scanning View**: Shows person's name + "Scan this QR to save my contact" + QR code
   - **Profile View**: Shows Name, Company, Phone, Email + SAVE CONTACT button (minimal, no form)
@@ -127,6 +128,7 @@ Three-tier enrichment pipeline:
 
 ### Personal QR Profiles
 - `POST /create-qr` → Create personal QR profile
+- `PUT /update-qr/{qr_id}` → Edit an existing QR profile's Name/Phone/Email/Company ⭐ NEW
 - `GET /get-qr-profile/{qr_id}` → Fetch profile by ID
 - `GET /get-all-qr-profiles` → List all QR profiles
 

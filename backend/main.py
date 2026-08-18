@@ -205,6 +205,27 @@ async def create_qr(request: dict):
         logger.error(f"Create QR Error: {e}")
         return {"success": False, "message": str(e)}
 
+@app.put("/update-qr/{qr_id}")
+async def update_qr(qr_id: str, request: dict):
+    try:
+        payload = {
+            "action": "update_personal_qr",
+            "qrId": qr_id,
+            "profileData": {
+                "name": request.get("name"),
+                "phone": request.get("phone"),
+                "email": request.get("email"),
+                "company": request.get("company")
+            }
+        }
+        resp = submit_to_sheets(payload)
+        if resp and resp.status_code == 200:
+            return resp.json()
+        return {"success": False, "message": "Failed to update QR profile"}
+    except Exception as e:
+        logger.error(f"Update QR Profile Error: {e}")
+        return {"success": False, "message": str(e)}
+
 @app.get("/get-qr-profile/{qr_id}")
 async def get_qr_profile(qr_id: str):
     try:
