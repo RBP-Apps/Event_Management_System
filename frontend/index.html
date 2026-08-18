@@ -247,7 +247,18 @@
                 </div>
             </div>
 
-
+            <!-- Card Search -->
+            <div id="db-cards-search-wrap" style="margin-bottom: 16px; position: relative;">
+                <svg style="position:absolute; left:16px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:#94a3b8; pointer-events:none;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"></path></svg>
+                <input
+                    type="text"
+                    id="db-cards-search"
+                    oninput="filterScannedCards()"
+                    placeholder="Search by company, industry, person, designation, phone, email, services..."
+                    style="width:100%; padding:12px 16px 12px 42px; border-radius:14px; border:1.5px solid #e2e8f0; font-size:13px; font-weight:600; color:#1e293b; outline:none; background:#f8fafc;"
+                >
+                <span id="db-cards-count" style="position:absolute; right:16px; top:50%; transform:translateY(-50%); font-size:11px; font-weight:700; color:#94a3b8;"></span>
+            </div>
 
             <!-- Cards Table -->
             <div id="db-cards-content" class="db-scroll-wrap rounded-3xl border border-gray-100 shadow-sm">
@@ -275,6 +286,7 @@
                             <th style="padding: 15px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 2px solid #f1f5f9;">Source Link</th>
                             <th style="padding: 15px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 2px solid #f1f5f9;">About Company</th>
                             <th style="padding: 15px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 2px solid #f1f5f9;">Location</th>
+                            <th style="padding: 15px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 2px solid #f1f5f9; text-align:center;">Action</th>
                         </tr>
                     </thead>
                     <tbody id="db-cards-body">
@@ -813,8 +825,22 @@
                             const website = createLink(card['Website']);
                             const email = createLink(card['Email']);
 
+                            // Concatenate every searchable field so the single search box can
+                            // match on company, industry, designation, person, phone, email, etc.
+                            const searchableFields = [
+                                card['Company Name'], card['Industry'], card['Person Name'],
+                                card['Designation'], card['Phone'], card['Email'], card['Website'],
+                                card['Social Media'], card['Address'], card['Services'],
+                                card['Company Size'], card['Founded Year'], card['Registration Status'],
+                                card['People (Founders)'], card['About Company'], card['Location']
+                            ].filter(Boolean).join(' ').toLowerCase();
+
+                            const cardTimestamp = card['Timestamp'] instanceof Date
+                                ? card['Timestamp'].toISOString()
+                                : String(card['Timestamp'] || '');
+
                             const row = `
-                                <tr style="white-space:nowrap; border-bottom:1px solid #f1f5f9;">
+                                <tr style="white-space:nowrap; border-bottom:1px solid #f1f5f9;" data-search="${searchableFields.replace(/"/g, '&quot;')}">
                                     <td style="padding:15px; font-size:12px; color:#64748b; font-weight:700;">${idx + 1}</td>
                                     <td style="padding:15px; font-size:12px;">${img1}${img2}</td>
                                     <td style="padding:15px; font-size:12px; font-weight:600; color:#1e293b;">${card['Company Name'] || 'N/A'}</td>
@@ -836,13 +862,26 @@
                                     <td style="padding:15px; font-size:12px;">${srcLink}</td>
                                     <td style="padding:15px; font-size:12px; color:#64748b; max-width:200px; overflow:hidden; text-overflow:ellipsis;">${card['About Company'] || 'N/A'}</td>
                                     <td style="padding:15px; font-size:12px; color:#64748b;">${card['Location'] || 'N/A'}</td>
+                                    <td style="padding:15px; font-size:12px; text-align:center;">
+                                        <button type="button" class="delete-card-btn" data-timestamp="${cardTimestamp.replace(/"/g, '&quot;')}" data-company="${(card['Company Name'] || 'this card').replace(/"/g, '&quot;')}" title="Delete this card" style="width:28px;height:28px;border-radius:9999px;background:#fef2f2;color:#ef4444;display:inline-flex;align-items:center;justify-content:center;border:1px solid #fee2e2;cursor:pointer;transition:all 0.15s ease;">
+                                            <svg style="width:13px;height:13px;pointer-events:none;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        </button>
+                                    </td>
                                 </tr>
                             `;
                             cBody.insertAdjacentHTML('beforeend', row);
                         });
                         if (res.cards.length === 0) {
-                            cBody.innerHTML = '<tr><td colspan="21" style="padding:40px; text-align:center; color:#94a3b8; font-weight:600;">No scanned cards found for this event.</td></tr>';
+                            cBody.innerHTML = '<tr><td colspan="22" style="padding:40px; text-align:center; color:#94a3b8; font-weight:600;">No scanned cards found for this event.</td></tr>';
                         }
+
+                        // Wire delete buttons + reset search box/count for the freshly loaded table
+                        cBody.querySelectorAll('.delete-card-btn').forEach(btn => {
+                            btn.onclick = () => handleDeleteCard(eventId, btn.dataset.timestamp, btn.dataset.company);
+                        });
+                        const searchBox = document.getElementById('db-cards-search');
+                        if (searchBox) searchBox.value = '';
+                        updateCardSearchCount();
 
                         // Populate Visitors
                         res.visitors.forEach(v => {
@@ -871,6 +910,55 @@
                     document.getElementById('mainContainer').classList.remove('hidden');
                 }
             };
+
+            // Single free-text search across every scanned-card field (company, industry,
+            // person, designation, phone, email, services, etc.) — no fixed category list,
+            // since designations/industries can be anything (CEO, CA, Bank Manager, ...).
+            window.filterScannedCards = () => {
+                const query = (document.getElementById('db-cards-search')?.value || '').trim().toLowerCase();
+                const rows = document.querySelectorAll('#db-cards-body tr[data-search]');
+                rows.forEach(row => {
+                    const matches = !query || row.dataset.search.includes(query);
+                    row.style.display = matches ? '' : 'none';
+                });
+                updateCardSearchCount();
+            };
+
+            function updateCardSearchCount() {
+                const countEl = document.getElementById('db-cards-count');
+                if (!countEl) return;
+                const rows = document.querySelectorAll('#db-cards-body tr[data-search]');
+                if (rows.length === 0) { countEl.textContent = ''; return; }
+                const visible = Array.from(rows).filter(r => r.style.display !== 'none').length;
+                countEl.textContent = `${visible} of ${rows.length} shown`;
+            }
+
+            async function handleDeleteCard(eventId, timestamp, companyName) {
+                const confirmed = window.confirm(`Delete scanned card for "${companyName}"?\n\nThis cannot be undone.`);
+                if (!confirmed) return;
+
+                try {
+                    const r = await fetch('/delete-event-card', {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ eventId, timestamp })
+                    });
+                    const res = await r.json();
+                    if (res.success) {
+                        toastMe('Card deleted successfully', '#10b981');
+                        // Remove the row directly instead of re-fetching the whole table
+                        const btn = document.querySelector(`.delete-card-btn[data-timestamp="${CSS.escape(timestamp)}"]`);
+                        const row = btn ? btn.closest('tr') : null;
+                        if (row) row.remove();
+                        updateCardSearchCount();
+                    } else {
+                        toastMe('Failed to delete: ' + (res.message || 'Unknown error'), '#ef4444');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    toastMe('Error deleting card. Try again.', '#ef4444');
+                }
+            }
 
             window.switchTab = (tab) => {
                 const s = document.getElementById('scanTabContent');

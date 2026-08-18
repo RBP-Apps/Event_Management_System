@@ -66,7 +66,10 @@ Three-tier enrichment pipeline:
 - Create events with custom questions
 - Capture business cards and visitor responses per event
 - View event-specific analytics and lead lists
-- **Deletable**: every event card on the Event Hub has a trash-icon button (top-right corner) → confirms, then permanently deletes the event and all related rows across "Event Details", "Event Ai Card", and "Visitor Details" — `DELETE /delete-event/{event_id}` → `deleteEvent()` in Apps Script ⭐ NEW
+- **Deletable**: every event card on the Event Hub has a trash-icon button (top-right corner) → confirms, then permanently deletes the event and all related rows across "Event Details", "Event Ai Card", and "Visitor Details" — `DELETE /delete-event/{event_id}` → `deleteEvent()` in Apps Script
+- **Scanned Cards search + per-row delete** ⭐ NEW: inside an event's "Scanned Cards" table —
+  - A single free-text search box filters every field at once (company, industry, person name, designation, phone, email, services, address, etc.) via a per-row `data-search` attribute — deliberately no fixed dropdown/category filter, since designations/industries are open-ended (CEO, CA, Bank Manager, Director, ...) and any fixed list would miss values
+  - Each row has its own delete (trash) button — deletes just that one scanned card via `DELETE /delete-event-card` → `deleteEventCard(eventId, timestamp)` in Apps Script, identified by matching Event ID + row Timestamp (the row's natural unique key)
 
 ### 4. **Personal QR Code Profiles** ⭐ NEW
 - Users create personal QR codes with Name, Phone, Email, Company
@@ -125,7 +128,8 @@ Three-tier enrichment pipeline:
 - `GET /get-events` → Fetch all events
 - `POST /save-event` → Create new event
 - `GET /get-event/{event_id}` → Get event details
-- `DELETE /delete-event/{event_id}` → Delete an event + all its related cards/visitors ⭐ NEW
+- `DELETE /delete-event/{event_id}` → Delete an event + all its related cards/visitors
+- `DELETE /delete-event-card` → Delete one scanned card row (body: `{eventId, timestamp}`) ⭐ NEW
 - `GET /get-event-data` → Get event-specific lead data
 
 ### Personal QR Profiles

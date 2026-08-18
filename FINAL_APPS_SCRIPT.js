@@ -170,6 +170,8 @@ function doPost(e) {
       result = getEventList();
     } else if (action === 'delete_event') {
       result = deleteEvent(postData.eventId);
+    } else if (action === 'delete_event_card') {
+      result = deleteEventCard(postData.eventId, postData.timestamp);
     } else if (action === 'save_event_card') {
       result = saveEventCardData(postData.extractedData, postData.photo1Base64, postData.photo2Base64, postData.eventInfo);
     } else if (action === 'get_event_data') {
@@ -532,6 +534,37 @@ function saveEventCardData(extractedData, photo1Base64, photo2Base64, eventInfo)
   ]);
 
   return { success: true, message: "Card saved to Event Hub!" };
+}
+
+/**
+ * Delete a single scanned card row from "Event Ai Card" by matching both
+ * Event ID (Column B) and Timestamp (Column A) — Timestamp is used as the
+ * row's unique identifier since it's set at insert time and never repeats.
+ */
+function deleteEventCard(eventId, timestamp) {
+  if (!eventId || !timestamp) return { success: false, message: "eventId and timestamp are required" };
+
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = ss.getSheetByName("Event Ai Card");
+  if (!sheet) return { success: false, message: "Event Ai Card sheet not found" };
+
+  const data = sheet.getDataRange().getValues();
+  const idStr = String(eventId).trim().toLowerCase();
+  // Normalize timestamps to ISO strings for comparison, since the sheet stores
+  // real Date objects but the frontend sends an ISO string.
+  const targetTime = new Date(timestamp).getTime();
+
+  for (let i = data.length - 1; i >= 1; i--) {
+    const rowId = String(data[i][1]).trim().toLowerCase();
+    const rowTime = data[i][0] instanceof Date ? data[i][0].getTime() : new Date(data[i][0]).getTime();
+
+    if (rowId === idStr && rowTime === targetTime) {
+      sheet.deleteRow(i + 1); // +1 because sheet rows are 1-based
+      return { success: true, message: "✅ Card deleted successfully." };
+    }
+  }
+
+  return { success: false, message: "Card not found" };
 }
 
 function getEventById(eventId) {
