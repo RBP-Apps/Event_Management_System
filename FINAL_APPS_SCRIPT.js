@@ -168,6 +168,8 @@ function doPost(e) {
       result = getEventById(postData.eventId);
     } else if (action === 'get_event_list') {
       result = getEventList();
+    } else if (action === 'delete_event') {
+      result = deleteEvent(postData.eventId);
     } else if (action === 'save_event_card') {
       result = saveEventCardData(postData.extractedData, postData.photo1Base64, postData.photo2Base64, postData.eventInfo);
     } else if (action === 'get_event_data') {
@@ -431,6 +433,49 @@ function getEventList() {
     }
   }
   return { success: true, data: events };
+}
+
+/**
+ * Delete an event and all of its related data:
+ * - every row in "Event Details" for this Event ID (Column B)
+ * - every row in "Event Ai Card" for this Event ID (Column B)
+ * - every row in "Visitor Details" for this Event ID (Column B)
+ * Rows are removed bottom-to-top so shifting row indices don't skip rows.
+ */
+function deleteEvent(eventId) {
+  if (!eventId) return { success: false, message: "No Event ID provided" };
+
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const idStr = String(eventId).trim().toLowerCase();
+  let deletedCounts = {};
+
+  ["Event Details", "Event Ai Card", "Visitor Details"].forEach(sheetName => {
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) { deletedCounts[sheetName] = 0; return; }
+
+    const data = sheet.getDataRange().getValues();
+    let count = 0;
+
+    // Walk bottom-to-top so deleteRow() doesn't shift indices we still need to check
+    for (let i = data.length - 1; i >= 1; i--) {
+      if (String(data[i][1]).trim().toLowerCase() === idStr) {
+        sheet.deleteRow(i + 1); // +1 because sheet rows are 1-based
+        count++;
+      }
+    }
+    deletedCounts[sheetName] = count;
+  });
+
+  const totalDeleted = Object.values(deletedCounts).reduce((a, b) => a + b, 0);
+  if (totalDeleted === 0) {
+    return { success: false, message: "Event not found: " + eventId };
+  }
+
+  return {
+    success: true,
+    message: "✅ Event '" + eventId + "' and all related data deleted.",
+    deletedCounts: deletedCounts
+  };
 }
 
 function saveEventCardData(extractedData, photo1Base64, photo2Base64, eventInfo) {

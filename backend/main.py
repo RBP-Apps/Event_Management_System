@@ -83,6 +83,17 @@ async def get_event_by_id(event_id: str):
         logger.error(f"Get Event Error: {e}")
         return {"success": False, "message": str(e)}
 
+@app.delete("/delete-event/{event_id}")
+async def delete_event(event_id: str):
+    try:
+        resp = submit_to_sheets({"action": "delete_event", "eventId": event_id})
+        if resp and resp.status_code == 200:
+            return resp.json()
+        return {"success": False, "message": "Failed to delete event"}
+    except Exception as e:
+        logger.error(f"Delete Event Error: {e}")
+        return {"success": False, "message": str(e)}
+
 @app.post("/save-event")
 async def save_event(request: dict):
     try:

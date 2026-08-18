@@ -970,17 +970,21 @@
                                 display: block !important;
                                 transition: all 0.2s ease !important;
                              `;
+                             card.style.position = 'relative';
                              card.onclick = () => selectEvent(ev);
-                             
+
                              const startDate = ev.startDate ? new Date(ev.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBA';
                              const endDate = ev.endDate ? new Date(ev.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBA';
-                             
+
                              card.innerHTML = `
+                                <button type="button" class="delete-event-btn" data-event-id="${ev.id}" data-event-name="${ev.name.replace(/"/g, '&quot;')}" title="Delete event" style="position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:9999px;background:#fef2f2;color:#ef4444;display:flex;align-items:center;justify-content:center;border:1px solid #fee2e2;z-index:2;transition:all 0.15s ease;">
+                                    <svg style="width:13px;height:13px;pointer-events:none;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
                                 <div class="flex justify-between items-center mb-2" style="pointer-events:none">
                                     <div class="p-1.5 bg-blue-50 text-blue-600 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                                     </div>
-                                    <span class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase tracking-widest">${ev.id}</span>
+                                    <span class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase tracking-widest mr-8">${ev.id}</span>
                                 </div>
                                 <h3 class="text-sm font-bold text-gray-800 transition-colors group-hover:text-blue-700 leading-tight mb-1.5" style="pointer-events:none">${ev.name}</h3>
                                 ${ev.location ? `<div class="flex items-center gap-1 mb-1.5" style="pointer-events:none">
@@ -999,6 +1003,14 @@
                              `;
 
                             eventGrid.appendChild(card);
+
+                            const delBtn = card.querySelector('.delete-event-btn');
+                            if (delBtn) {
+                                delBtn.onclick = (e) => {
+                                    e.stopPropagation();
+                                    handleDeleteEvent(delBtn.dataset.eventId, delBtn.dataset.eventName);
+                                };
+                            }
                         });
                     } else {
                         eventGrid.innerHTML = `
@@ -1010,6 +1022,27 @@
                     }
                 } catch (e) {
                     eventGrid.innerHTML = '<div class="col-span-full py-10 text-center text-red-500 font-bold">Failed to load events.</div>';
+                }
+            }
+
+            async function handleDeleteEvent(eventId, eventName) {
+                const confirmed = window.confirm(
+                    `Delete event "${eventName}" (${eventId})?\n\nThis will permanently remove the event and all its scanned cards and visitor data. This cannot be undone.`
+                );
+                if (!confirmed) return;
+
+                try {
+                    const r = await fetch(`/delete-event/${encodeURIComponent(eventId)}`, { method: 'DELETE' });
+                    const res = await r.json();
+                    if (res.success) {
+                        toastMe('Event deleted successfully', '#10b981');
+                        fetchEvents();
+                    } else {
+                        toastMe('Failed to delete: ' + (res.message || 'Unknown error'), '#ef4444');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    toastMe('Error deleting event. Try again.', '#ef4444');
                 }
             }
 
