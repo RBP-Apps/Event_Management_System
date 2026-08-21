@@ -2,9 +2,11 @@
 
 ## 🎯 Project Overview
 
-**Business Card Event Reader** is an intelligent OCR-powered lead capture system designed for events and networking. It automatically extracts business card data from photos using Google Cloud Vision API, enriches the data with company intelligence, and stores everything in Google Sheets.
+**Business Card Event Reader** is an intelligent OCR-powered lead capture system designed for events and networking. It automatically extracts business card data from photos using Google Cloud Vision API, enriches the data with company intelligence, and stores everything in **Supabase (Postgres)**.
 
 The system also includes a **Personal QR Code Profile** feature that allows users to create and share individual QR codes for instant contact saving.
+
+> ⚠️ **This RBP fork has been migrated off Google Sheets to Supabase** (see "Supabase Migration" section below). The `origin` remote (Botivate) still runs on Google Sheets/Apps Script — do not port this migration back to `origin`.
 
 ---
 
@@ -32,7 +34,8 @@ Business_Card_Event_Reader/
 │   │   ├── ocr_service.py        # Google Cloud Vision OCR
 │   │   └── enrichment_service.py # Waterfall enrichment (LinkedIn, Apollo, etc.)
 │   └── utils/
-│       └── sheets.py             # Google Apps Script integration
+│       ├── supabase_client.py    # ⭐ Supabase data-access layer (replaces Sheets)
+│       └── sheets.py             # DEPRECATED — old Google Apps Script integration, unused
 │
 ├── frontend/
 │   ├── index.html                # Main Event Hub page (HTML/CSS/JS)
@@ -213,7 +216,59 @@ User clicks "SAVE CONTACT" → Download .vcf file
 
 ---
 
-## 🔧 Setup & Deployment
+## 🗄️ Supabase Migration (RBP fork only)
+
+This fork's data layer was migrated from Google Sheets → **Supabase (Postgres)**. `origin` (Botivate) is unaffected and still runs on Sheets/Apps Script — this migration lives only on the `event` remote (RBP-Apps/Event_Management_System).
+
+### What changed
+- `backend/utils/supabase_client.py` — new data-access layer. Every function mirrors the equivalent function in `FINAL_APPS_SCRIPT.js` 1:1 (same event-ID generation scheme, same cascading-delete behavior, same company-profile merge logic in `saveVisitorAndGetContact`) so app behavior is unchanged.
+- `backend/main.py` — every `submit_to_sheets({"action": ...})` call replaced with the matching `db.*()` call from `supabase_client.py`.
+- `backend/utils/sheets.py` — **deprecated**, kept only for historical reference. No code imports it anymore.
+- Business card photos (front/back) now upload to a **Supabase Storage** bucket named `business-cards` (public) instead of Google Drive. `upload_photo()` in `supabase_client.py` handles this — replaces the old `DriveApp.createFile()` calls.
+- `requirements.txt` — added `supabase` (Python client).
+- `.env` — added `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. `APPS_SCRIPT_URL` is no longer required (kept optional in `config.py` for reference).
+
+### Database schema
+6 tables mirror the 6 old sheet tabs 1:1 (see full `CREATE TABLE` SQL in migration history):
+| Sheet (old) | Table (new) |
+|---|---|
+| Ai Card | `ai_cards` |
+| Event Details | `event_details` |
+| Event Ai Card | `event_ai_cards` |
+| Visitor Details | `visitor_details` |
+| Company Profile | `company_profile` |
+| Personal QR Profiles | `personal_qr_profiles` |
+
+All columns are `text` (matches the old sheet's untyped-cell behavior) except `id` (identity PK) and `timestamp`/`created_date` (`timestamptz`). Indexes on `event_id` (event_details, event_ai_cards, visitor_details) and `qr_id` (personal_qr_profiles) for fast lookups.
+
+### One-time data migration (already done for this deployment)
+Existing Google Sheet data was migrated with zero loss:
+1. Fetched every sheet's full contents via the existing `{"action": "read", "sheetName": "..."}` Apps Script endpoint (no Apps Script code changes needed — `getSheetData()` already supports dumping any sheet raw).
+2. Inserted into the matching Supabase table via the Python `supabase` client, batched at 200 rows/request.
+3. Verified row-for-row: source count vs destination count per table, **and** a field-level spot-check (first/middle/last row) confirming exact value match.
+4. The single existing photo pair (Google Drive URLs in `event_ai_cards`) was downloaded and re-uploaded into the `business-cards` Storage bucket; the row's URL columns were updated to point at the new Supabase Storage public URLs.
+
+Result for the RBP dataset at migration time: `event_details` (1 row), `event_ai_cards` (270 rows), `company_profile` (1 row) — all verified OK. `ai_cards`, `visitor_details`, `personal_qr_profiles` were empty at migration time (no data lost, sheets were genuinely empty).
+
+### New deployment checklist (Supabase)
+1. Create a Supabase project → **Settings → API** for `Project URL`, `anon` key, `service_role` key
+2. Run the schema SQL (6 `CREATE TABLE` statements + 4 indexes) in the SQL Editor, or via a direct Postgres connection (`db.<project-ref>.supabase.co:5432`, password set at project creation)
+3. Create a public Storage bucket named `business-cards`
+4. Set `.env`: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (server-side only — bypasses RLS, never expose to the frontend)
+5. `pip install -r requirements.txt` (now includes `supabase`)
+6. Deploy — no Apps Script deployment needed for this fork anymore
+
+### Render deployment — credentials to update
+On the RBP Render service's **Environment** tab, replace/add:
+- `SUPABASE_URL` = `https://<project-ref>.supabase.co`
+- `SUPABASE_SERVICE_ROLE_KEY` = the `service_role` secret key (**not** `anon`)
+- `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `GOOGLE_CSE_ID` — unchanged, still required (OCR + enrichment pipeline)
+- `APPS_SCRIPT_URL` — no longer read by any code path; can be left as-is or removed, doesn't matter either way
+- After updating env vars, trigger **Manual Deploy → Deploy latest commit** (env var changes alone don't restart the service)
+
+---
+
+## 🔧 Setup & Deployment (legacy — Google Sheets, `origin`/Botivate only)
 
 ### Environment Setup
 
@@ -475,5 +530,5 @@ npm run build
 
 ---
 
-**Last Updated**: August 18, 2026
-**System Version**: v2.1.0 (Back Navigation Fix + Custom Industry + Company Profile Save Fix + Auto Sheet Setup)
+**Last Updated**: August 21, 2026
+**System Version**: v3.0.0 (RBP fork: Migrated to Supabase + Back Navigation Fix + Custom Industry + Company Profile Save Fix + Auto Sheet Setup)

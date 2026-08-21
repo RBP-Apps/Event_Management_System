@@ -11,11 +11,13 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 APPS_SCRIPT_URL = os.getenv("APPS_SCRIPT_URL")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 if not OPENAI_API_KEY:
     raise ValueError("No OPENAI_API_KEY found in .env file.")
-if not APPS_SCRIPT_URL:
-    raise ValueError("No APPS_SCRIPT_URL found in .env file.")
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    raise ValueError("No SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY found in .env file.")
 
 # Path Helpers
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

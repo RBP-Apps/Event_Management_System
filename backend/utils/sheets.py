@@ -1,3 +1,6 @@
+# DEPRECATED: the app now reads/writes Supabase (see backend/utils/supabase_client.py).
+# Kept only as a historical reference for the old Google Sheets / Apps Script
+# integration — no code in this project calls submit_to_sheets() anymore.
 import requests
 from backend.core.config import APPS_SCRIPT_URL, logger
 

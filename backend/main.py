@@ -12,7 +12,7 @@ from backend.core.config import logger, FRONTEND_DIR
 from backend.core.models import OCRRequest
 from backend.services.ocr_service import extract_card_data
 from backend.services.enrichment_service import run_waterfall_enrichment
-from backend.utils.sheets import submit_to_sheets
+from backend.utils import supabase_client as db
 
 app = FastAPI(title="Business Card OCR API")
 
@@ -39,23 +39,16 @@ async def perform_ocr(request: OCRRequest):
              confidence_score += (trust_val * 2) 
         except: pass
         if final_data.get("social_media"): confidence_score += 10
-        
-        # 4. Sheet Submission
-        payload = {
-            "action": "save_event_card" if request.eventMode else "save",
-            "extractedData": final_data,
-            "confidence_score": confidence_score,
-            "photo1Base64": request.base64Image1, 
-            "photo2Base64": request.base64Image2 or "",
-            "eventInfo": request.eventInfo
-        }
-        
-        # Log the final enriched data to terminal
+
+        # 4. Database Submission (Supabase)
         import json
         logger.info(f"FINAL DATA TO SAVE:\n{json.dumps(final_data, indent=4)}")
-        
-        submit_to_sheets(payload)
-        
+
+        if request.eventMode:
+            db.save_event_card_data(final_data, request.base64Image1, request.base64Image2 or "", request.eventInfo)
+        else:
+            db.save_data(final_data, request.base64Image1, request.base64Image2 or "")
+
         return {"success": True, "data": final_data, "confidence_score": confidence_score}
 
     except Exception as e:
@@ -65,20 +58,15 @@ async def perform_ocr(request: OCRRequest):
 @app.get("/get-events")
 async def get_events_list():
     try:
-        resp = submit_to_sheets({"action": "get_event_list"})
-        if resp and resp.status_code == 200:
-            return resp.json()
-        return {"success": False, "message": "Failed to fetch event list"}
+        return db.get_event_list()
     except Exception as e:
+        logger.error(f"Get Events Error: {e}")
         return {"success": False, "message": str(e)}
 
 @app.get("/get-event/{event_id}")
 async def get_event_by_id(event_id: str):
     try:
-        resp = submit_to_sheets({"action": "get_event", "eventId": event_id})
-        if resp and resp.status_code == 200:
-            return resp.json()
-        return {"success": False, "message": "Failed to fetch event details"}
+        return db.get_event_by_id(event_id)
     except Exception as e:
         logger.error(f"Get Event Error: {e}")
         return {"success": False, "message": str(e)}
@@ -86,15 +74,7 @@ async def get_event_by_id(event_id: str):
 @app.delete("/delete-event-card")
 async def delete_event_card(request: dict):
     try:
-        payload = {
-            "action": "delete_event_card",
-            "eventId": request.get("eventId"),
-            "timestamp": request.get("timestamp")
-        }
-        resp = submit_to_sheets(payload)
-        if resp and resp.status_code == 200:
-            return resp.json()
-        return {"success": False, "message": "Failed to delete card"}
+        return db.delete_event_card(request.get("eventId"), request.get("timestamp"))
     except Exception as e:
         logger.error(f"Delete Event Card Error: {e}")
         return {"success": False, "message": str(e)}
@@ -102,10 +82,7 @@ async def delete_event_card(request: dict):
 @app.delete("/delete-event/{event_id}")
 async def delete_event(event_id: str):
     try:
-        resp = submit_to_sheets({"action": "delete_event", "eventId": event_id})
-        if resp and resp.status_code == 200:
-            return resp.json()
-        return {"success": False, "message": "Failed to delete event"}
+        return db.delete_event(event_id)
     except Exception as e:
         logger.error(f"Delete Event Error: {e}")
         return {"success": False, "message": str(e)}
@@ -113,24 +90,7 @@ async def delete_event(event_id: str):
 @app.post("/save-event")
 async def save_event(request: dict):
     try:
-        # Request is expected to contain 'eventData'
-        payload = {
-            "action": "save_event",
-            "eventData": request.get("eventData")
-        }
-        
-        # Submit to Sheets via existing utility
-        resp = submit_to_sheets(payload)
-        
-        if resp and resp.status_code == 200:
-            try:
-                sheet_res = resp.json()
-                return {"success": True, **sheet_res}
-            except:
-                return {"success": True, "message": "Event saved"}
-        else:
-            raise Exception("Failed to save to Google Sheets via Apps Script")
-
+        return db.save_event_data(request.get("eventData") or {})
     except Exception as e:
         logger.error(f"Save Event Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -138,19 +98,8 @@ async def save_event(request: dict):
 @app.post("/submit-lead")
 async def submit_lead(request: dict):
     try:
-        # Request contains 'leadData'
-        payload = {
-            "action": "save_lead",
-            "leadData": request.get("leadData")
-        }
-        
-        resp = submit_to_sheets(payload)
-        
-        if resp and resp.status_code == 200:
-            return {"success": True, "message": "Lead submitted successfully"}
-        else:
-            raise Exception("Failed to save lead to Google Sheets")
-
+        db.save_lead_data(request.get("leadData") or {})
+        return {"success": True, "message": "Lead submitted successfully"}
     except Exception as e:
         logger.error(f"Submit Lead Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -158,15 +107,7 @@ async def submit_lead(request: dict):
 @app.post("/get-event-data")
 async def get_event_specific_data(request: dict):
     try:
-        payload = {
-            "action": "get_event_data",
-            "eventId": request.get("eventId"),
-            "eventName": request.get("eventName")
-        }
-        resp = submit_to_sheets(payload)
-        if resp and resp.status_code == 200:
-            return resp.json()
-        return {"success": False, "message": "Failed to fetch event data"}
+        return db.get_event_specific_data(request.get("eventId"), request.get("eventName"))
     except Exception as e:
         logger.error(f"Get Event Data Error: {e}")
         return {"success": False, "message": str(e)}
@@ -174,10 +115,7 @@ async def get_event_specific_data(request: dict):
 @app.get("/get-company-profile")
 async def get_company_profile():
     try:
-        resp = submit_to_sheets({"action": "get_company_profile"})
-        if resp and resp.status_code == 200:
-            return resp.json()
-        return {"success": False, "message": "Failed to fetch profile"}
+        return db.get_company_profile()
     except Exception as e:
         logger.error(f"Get Company Profile Error: {e}")
         return {"success": False, "message": str(e)}
@@ -185,14 +123,7 @@ async def get_company_profile():
 @app.post("/save-company-profile")
 async def save_company_profile(request: dict):
     try:
-        payload = {
-            "action": "save_company_profile",
-            "profileData": request.get("profileData")
-        }
-        resp = submit_to_sheets(payload)
-        if resp and resp.status_code == 200:
-            return resp.json()
-        return {"success": False, "message": "Failed to save profile"}
+        return db.save_company_profile(request.get("profileData") or {})
     except Exception as e:
         logger.error(f"Save Company Profile Error: {e}")
         return {"success": False, "message": str(e)}
@@ -200,14 +131,7 @@ async def save_company_profile(request: dict):
 @app.post("/submit-visitor-and-get-contact")
 async def submit_visitor_and_get_contact(request: dict):
     try:
-        payload = {
-            "action": "save_visitor_and_get_contact",
-            "visitorData": request
-        }
-        resp = submit_to_sheets(payload)
-        if resp and resp.status_code == 200:
-            return resp.json()
-        return {"success": False, "message": "Failed to process visitor data"}
+        return db.save_visitor_and_get_contact(request)
     except Exception as e:
         logger.error(f"Submit Visitor Error: {e}")
         return {"success": False, "message": str(e)}
@@ -215,19 +139,13 @@ async def submit_visitor_and_get_contact(request: dict):
 @app.post("/create-qr")
 async def create_qr(request: dict):
     try:
-        payload = {
-            "action": "create_personal_qr",
-            "profileData": {
-                "name": request.get("name"),
-                "phone": request.get("phone"),
-                "email": request.get("email"),
-                "company": request.get("company")
-            }
+        profile_data = {
+            "name": request.get("name"),
+            "phone": request.get("phone"),
+            "email": request.get("email"),
+            "company": request.get("company"),
         }
-        resp = submit_to_sheets(payload)
-        if resp and resp.status_code == 200:
-            return resp.json()
-        return {"success": False, "message": "Failed to create QR"}
+        return db.create_personal_qr(profile_data)
     except Exception as e:
         logger.error(f"Create QR Error: {e}")
         return {"success": False, "message": str(e)}
@@ -235,20 +153,13 @@ async def create_qr(request: dict):
 @app.put("/update-qr/{qr_id}")
 async def update_qr(qr_id: str, request: dict):
     try:
-        payload = {
-            "action": "update_personal_qr",
-            "qrId": qr_id,
-            "profileData": {
-                "name": request.get("name"),
-                "phone": request.get("phone"),
-                "email": request.get("email"),
-                "company": request.get("company")
-            }
+        profile_data = {
+            "name": request.get("name"),
+            "phone": request.get("phone"),
+            "email": request.get("email"),
+            "company": request.get("company"),
         }
-        resp = submit_to_sheets(payload)
-        if resp and resp.status_code == 200:
-            return resp.json()
-        return {"success": False, "message": "Failed to update QR profile"}
+        return db.update_personal_qr(qr_id, profile_data)
     except Exception as e:
         logger.error(f"Update QR Profile Error: {e}")
         return {"success": False, "message": str(e)}
@@ -256,10 +167,7 @@ async def update_qr(qr_id: str, request: dict):
 @app.get("/get-qr-profile/{qr_id}")
 async def get_qr_profile(qr_id: str):
     try:
-        resp = submit_to_sheets({"action": "get_qr_profile", "qrId": qr_id})
-        if resp and resp.status_code == 200:
-            return resp.json()
-        return {"success": False, "message": "QR Profile not found"}
+        return db.get_qr_profile(qr_id)
     except Exception as e:
         logger.error(f"Get QR Profile Error: {e}")
         return {"success": False, "message": str(e)}
@@ -267,10 +175,7 @@ async def get_qr_profile(qr_id: str):
 @app.get("/get-all-qr-profiles")
 async def get_all_qr_profiles():
     try:
-        resp = submit_to_sheets({"action": "get_all_qr_profiles"})
-        if resp and resp.status_code == 200:
-            return resp.json()
-        return {"success": False, "message": "Failed to fetch QR profiles"}
+        return db.get_all_qr_profiles()
     except Exception as e:
         logger.error(f"Get All QR Profiles Error: {e}")
         return {"success": False, "message": str(e)}
