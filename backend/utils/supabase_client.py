@@ -320,6 +320,12 @@ def get_event_specific_data(event_id: str, event_name: str):
         cards = supabase.table("event_ai_cards").select("*").eq("event_name", event_name).execute().data
         visitors = supabase.table("visitor_details").select("*").eq("event_name", event_name).execute().data
 
+    # frontend/index.html's openDbView() reads Sheet-header-style keys
+    # (card['Company Name'], card['Card Photo 1'], ...) — remap snake_case
+    # Postgres columns back to those exact headers, same as get_sheet_data().
+    cards = _remap_to_sheet_headers(cards, "event_ai_cards")
+    visitors = _remap_to_sheet_headers(visitors, "visitor_details")
+
     return {"success": True, "cards": cards, "visitors": visitors}
 
 
@@ -596,19 +602,25 @@ _SHEET_HEADERS_BY_TABLE = {
 }
 
 
-def get_sheet_data(sheet_name: str):
-    table = _TABLE_BY_SHEET_NAME.get(sheet_name or "Ai Card", "ai_cards")
-    resp = supabase.table(table).select("*").execute()
-    if not resp.data:
-        return []
-
+def _remap_to_sheet_headers(rows: list, table: str) -> list:
+    """Converts Postgres snake_case columns back to the exact Sheet-header
+    text old frontend pages (index.html's openDbView, leads.html) expect
+    (e.g. company_name -> "Company Name"). Keeps `id` as-is since no old
+    Sheet page ever referenced it."""
     header_map = _SHEET_HEADERS_BY_TABLE.get(table, {})
     remapped = []
-    for row in resp.data:
+    for row in rows:
         obj = {}
         for col, value in row.items():
             key = header_map.get(col, col)
             obj[key] = value if value is not None else ""
         remapped.append(obj)
+    return remapped
 
-    return _ok(remapped)
+
+def get_sheet_data(sheet_name: str):
+    table = _TABLE_BY_SHEET_NAME.get(sheet_name or "Ai Card", "ai_cards")
+    resp = supabase.table(table).select("*").execute()
+    if not resp.data:
+        return []
+    return _ok(_remap_to_sheet_headers(resp.data, table))
