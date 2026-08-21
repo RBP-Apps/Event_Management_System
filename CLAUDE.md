@@ -250,6 +250,16 @@ Existing Google Sheet data was migrated with zero loss:
 
 Result for the RBP dataset at migration time: `event_details` (1 row), `event_ai_cards` (270 rows), `company_profile` (1 row) — all verified OK. `ai_cards`, `visitor_details`, `personal_qr_profiles` were empty at migration time (no data lost, sheets were genuinely empty).
 
+### 🐛 Known issue class: snake_case vs Sheet-header keys
+Two frontend pages read data directly in the old Sheet-header format (`"Company Name"`, `"Card Photo 1"`, `"Visitor Name"`, ...) because they were never touched during the migration — only the backend was:
+- `frontend/index.html` → `openDbView()` → `GET/POST /get-event-data` → `get_event_specific_data()`
+- `frontend/leads.html` → had a **hardcoded old Botivate Apps Script URL** it called directly from the browser, completely bypassing this app's backend
+
+Symptom when this breaks: the page shows Botivate's old data (if still pointed at Apps Script) or **N/A / undefined for every cell** (if pointed at Supabase but the backend returns raw Postgres snake_case columns like `company_name` instead of `"Company Name"`).
+
+**Fix pattern**: `supabase_client.py` has a `_remap_to_sheet_headers(rows, table)` helper + a `_SHEET_HEADERS_BY_TABLE` map (snake_case → exact old Sheet header text) — any new/existing function whose result reaches one of these legacy-format frontend pages must pass its rows through this helper before returning. Already applied to `get_sheet_data()` and `get_event_specific_data()`. `leads.html` itself was repointed from the old Apps Script URL to a new `POST /read-sheet-data` endpoint (which also uses this same remap).
+If a similar N/A/undefined/Botivate-data symptom shows up on another page, check the same two things: (1) is the frontend still calling a hardcoded Apps Script URL, and (2) does the backend response for that call go through `_remap_to_sheet_headers()`.
+
 ### New deployment checklist (Supabase)
 1. Create a Supabase project → **Settings → API** for `Project URL`, `anon` key, `service_role` key
 2. Run the schema SQL (6 `CREATE TABLE` statements + 4 indexes) in the SQL Editor, or via a direct Postgres connection (`db.<project-ref>.supabase.co:5432`, password set at project creation)
@@ -531,4 +541,4 @@ npm run build
 ---
 
 **Last Updated**: August 21, 2026
-**System Version**: v3.0.0 (RBP fork: Migrated to Supabase + Back Navigation Fix + Custom Industry + Company Profile Save Fix + Auto Sheet Setup)
+**System Version**: v3.0.1 (RBP fork: Supabase migration + fixed leads.html/get-event-data still reading old Botivate Sheet / showing N/A — Back Navigation Fix + Custom Industry + Company Profile Save Fix + Auto Sheet Setup)
