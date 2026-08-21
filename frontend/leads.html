@@ -295,7 +295,11 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzCPeTYr3DyfmQaEJCQ_A7KnKJ9gZtz4zO-chHkLyvxMFsCd2JRWikUB8LxpFwwbuczxw/exec';
+        // Reads from this app's own backend (Supabase-backed) instead of the old
+        // Google Apps Script deployment — same request/response shape ({"action":
+        // "read", "sheetName": "..."} -> {"success": true, "data": [...]}) so the
+        // rest of this page needed no other changes.
+        const APPS_SCRIPT_URL = '/read-sheet-data';
         let qrInstance = null;
         let currentEventId = '';
         

@@ -1,6 +1,7 @@
+import json
 import os
 import sys
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 import httpx
@@ -178,6 +179,28 @@ async def get_all_qr_profiles():
         return db.get_all_qr_profiles()
     except Exception as e:
         logger.error(f"Get All QR Profiles Error: {e}")
+        return {"success": False, "message": str(e)}
+
+@app.post("/read-sheet-data")
+async def read_sheet_data(request: Request):
+    """
+    Generic raw-table dump, kept for parity with the old Apps Script
+    {"action": "read", "sheetName": "..."} endpoint that frontend/leads.html
+    calls directly. Returns Sheet-header-style keys (e.g. "Company Name")
+    so that frontend page needs no changes beyond pointing at this URL.
+
+    Takes a raw Request (not a `dict` body param) because leads.html sends
+    Content-Type: text/plain (a holdover from the old Apps Script CORS
+    workaround) — FastAPI's automatic dict-body parsing requires
+    application/json and would 422 on that header.
+    """
+    try:
+        raw_body = await request.body()
+        payload = json.loads(raw_body) if raw_body else {}
+        sheet_name = payload.get("sheetName")
+        return db.get_sheet_data(sheet_name)
+    except Exception as e:
+        logger.error(f"Read Sheet Data Error: {e}")
         return {"success": False, "message": str(e)}
 
 @app.get("/proxy-image")

@@ -547,10 +547,68 @@ _TABLE_BY_SHEET_NAME = {
     "Personal QR Profiles": "personal_qr_profiles",
 }
 
+# Reverse column-name maps (Postgres snake_case -> old Sheet header text), one
+# per table, so anything still reading the "read"/getSheetData()-style
+# response (e.g. frontend/leads.html) sees the exact same header keys it
+# always did — the frontend was never changed as part of the Supabase move.
+_SHEET_HEADERS_BY_TABLE = {
+    "ai_cards": {
+        "timestamp": "Timestamp", "photo1": "Photo1", "photo2": "Photo2",
+        "company": "Company", "industry": "Industry", "name": "Name", "title": "Title",
+        "phone": "Phone", "email": "Email", "website": "Website",
+        "social_media": "Social Media", "address": "Address", "services": "Services",
+        "company_size": "Company Size", "founded_year": "Founded Year",
+        "registration_status": "Registration Status", "trust_score": "Trust Score",
+        "key_people": "Key People", "is_validated": "Is Validated",
+        "validation_link": "Validation Link", "about_company": "About Company",
+        "location": "Location",
+    },
+    "event_details": {
+        "timestamp": "Timestamp", "event_id": "Event ID", "event_name": "Event Name",
+        "start_date": "Start Date", "end_date": "End Date", "location": "Location",
+        "description": "Description", "member_name": "Member Name",
+        "designation": "Designation", "phone": "Phone",
+    },
+    "event_ai_cards": {
+        "timestamp": "Timestamp", "event_id": "Event ID", "event_name": "Event Name",
+        "event_start_date": "Event Start Date", "event_end_date": "Event End Date",
+        "card_photo1": "Card Photo 1", "card_photo2": "Card Photo 2",
+        "company_name": "Company Name", "industry": "Industry",
+        "person_name": "Person Name", "designation": "Designation", "phone": "Phone",
+        "email": "Email", "website": "Website", "social_media": "Social Media",
+        "address": "Address", "services": "Services", "company_size": "Company Size",
+        "founded_year": "Founded Year", "registration_status": "Registration Status",
+        "trust_score": "Trust Score", "people_founders": "People (Founders)",
+        "is_validated": "Is Validated", "source_link": "Source Link",
+        "about_company": "About Company", "location": "Location",
+    },
+    "visitor_details": {
+        "timestamp": "Timestamp", "event_id": "Event ID", "event_name": "Event Name",
+        "visitor_name": "Visitor Name", "visitor_mobile": "Visitor Mobile",
+        "visitor_email": "Visitor Email", "visitor_organization": "Visitor Organization",
+        "visitor_designation": "Visitor Designation", "message": "Message",
+    },
+    "company_profile": {v: k for k, v in _PROFILE_COLUMN_MAP.items()},  # not used via get_sheet_data, kept for completeness
+    "personal_qr_profiles": {
+        "name": "Name", "phone": "Phone", "email": "Email", "company": "Company",
+        "qr_id": "QR_ID", "created_date": "Created Date",
+    },
+}
+
 
 def get_sheet_data(sheet_name: str):
     table = _TABLE_BY_SHEET_NAME.get(sheet_name or "Ai Card", "ai_cards")
     resp = supabase.table(table).select("*").execute()
     if not resp.data:
         return []
-    return _ok(resp.data)
+
+    header_map = _SHEET_HEADERS_BY_TABLE.get(table, {})
+    remapped = []
+    for row in resp.data:
+        obj = {}
+        for col, value in row.items():
+            key = header_map.get(col, col)
+            obj[key] = value if value is not None else ""
+        remapped.append(obj)
+
+    return _ok(remapped)
